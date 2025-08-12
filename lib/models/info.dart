@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 class Info with ChangeNotifier {
   bool loggedIn = false;
+  bool signedIn = false;
   late Company company;
   late Schedule schedule;
   late Detail detail;
@@ -23,6 +24,11 @@ class Info with ChangeNotifier {
   login(Detail newDetail){
     loggedIn = true;
     detail = newDetail;
+    notifyListeners();
+  }
+
+  signIn(){
+    signedIn = true;
     notifyListeners();
   }
 

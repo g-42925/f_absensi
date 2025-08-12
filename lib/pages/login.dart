@@ -18,7 +18,7 @@ class LoginPage extends StatefulWidget{
 class _LoginPageState extends State<LoginPage>{
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final url = Uri.parse('http://192.168.43.236/lss_absensi/api/mobile/login');
+  final url = Uri.parse('http://172.24.113.245/lss_absensi/api/mobile/login');
 
   bool visibility = false;
   bool loading = false;
@@ -71,8 +71,8 @@ class _LoginPageState extends State<LoginPage>{
         final List<Location> locations = (responseBody['result']['locations'] as List)
           .map((l){
             return Location(
-              lat:l['garis_bujur'],
-              lon:l['garis_lintang'],
+              lat:l['garis_lintang'],
+              lon:l['garis_bujur'],
               address:l['alamat_lokasi'],
               locationName:l['nama_lokasi']
             );

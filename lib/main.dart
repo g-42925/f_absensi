@@ -1,36 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:camera/camera.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import './models/info.dart';
 import './pages/login.dart';
 import './pages/signin.dart';
 
 
 void main() async {
+  Map<String,double> coordinate = {
+    'lat':0,
+    'lon':0
+  };
+
+  await Supabase.initialize(
+    url: 'https://vgbkdwivxidacojvcnbr.supabase.co',
+    anonKey: 'sb_publishable_25TewwFEWm3n3W-L0Mzm-g_CQLq68Dm',
+  );
+
   WidgetsFlutterBinding.ensureInitialized();
   final cameras = await availableCameras();
-  final firstCamera = cameras.first;
 
-  final frontCamera = cameras.firstWhere(
-    (cam) => cam.lensDirection == CameraLensDirection.front,
-  );
+  final camera = cameras.firstWhere((cam) => cam.lensDirection == CameraLensDirection.front);
+
+  bool isLocationServiceEnabled = await Geolocator.isLocationServiceEnabled();
+
+  LocationPermission locationPermission = await Geolocator.checkPermission();
+
+
+  if(isLocationServiceEnabled){
+    if(locationPermission == LocationPermission.whileInUse){
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      coordinate = {
+        'lat':position.latitude,
+        'lon':position.longitude
+      };
+    }
+    else{
+      locationPermission = await Geolocator.requestPermission();
+      if(locationPermission == LocationPermission.whileInUse){
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        coordinate = {
+          'lat':position.latitude,
+          'lon':position.longitude
+        };
+      }
+    }
+  }
 
   runApp(
     MultiProvider(
       providers:[ChangeNotifierProvider(create:(_) => Info())],
-      child: MyApp(cameras:cameras,camera:frontCamera)
+      child: MyApp(coordinate:coordinate,camera:camera)
     )
   );
 }
 
 class MyApp extends StatelessWidget {
   final CameraDescription camera;
-  final List<CameraDescription> cameras;
+  final Map<String,double> coordinate;
   
   MyApp({
     super.key,
     required this.camera,
-    required this.cameras
+    required this.coordinate
   });
 
   Map<String,WidgetBuilder> createRoute(){
@@ -38,7 +78,7 @@ class MyApp extends StatelessWidget {
       '/': (_) => LoginPage(),
       '/signin': (_) => SignInPage(
         camera:camera,
-        cameras:cameras,
+        coord:coordinate
       ),
       '/feature' : (_) => MyHomePage(
         title:'Flutter',
@@ -78,17 +118,13 @@ class _MyHomePageState extends State<MyHomePage> {
   
 
   @override Widget build(BuildContext context) {
+    final bool signedIn = context.read<Info>().signedIn;
     final Company company = context.read<Info>().detail.company;
     final Schedule schedule = context.read<Info>().detail.schedule;
     final String message = "maka sesungguhnya bersama kesulitan itu ada kemudahan";
     final String scheduleStartTtime = schedule.start;
     final String scheduleFinishTime = schedule.finish;
     
-
-    test(){
-      print(company.name);
-    };
-
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -144,7 +180,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16.0), // ubah angka untuk radius berbeda
                            child: Image.network(
-                            'http://192.168.43.236/lss_absensi/assets/uploaded/components/${company.logo}',
+                            'http://172.24.113.245/lss_absensi/assets/uploaded/components/${company.logo}',
                             width: 70,
                             height: 70,
                             fit: BoxFit.cover,
@@ -158,7 +194,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           child:Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children:[
-                              Text('Lyly petshop',style:TextStyle(color:Colors.white,fontWeight:FontWeight.bold,fontSize:18)),
+                              Text(company.name,style:TextStyle(color:Colors.white,fontWeight:FontWeight.bold,fontSize:18)),
                               Text(message,overflow:TextOverflow.visible,style:TextStyle(color:Colors.white))
                             ]
                           )
@@ -189,7 +225,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   children: [
                                     Icon(Icons.login),
                                     SizedBox(width: 4),
-                                   Text(scheduleStartTtime),
+                                    Text(scheduleStartTtime),
                                   ],
                                 ),
                                 Text('...'),
@@ -273,7 +309,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   onPressed: () {
                     Navigator.pushNamed(
                       context, 
-                   '  /signin'
+                      '/signin'
                     );
                   },
                   icon: const Icon(
