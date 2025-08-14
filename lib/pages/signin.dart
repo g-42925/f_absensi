@@ -12,13 +12,16 @@ import 'package:provider/provider.dart';
 import 'package:camera/camera.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../models/info.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../models/info.dart';
+import '../env/env.dart';
+
+
 
 class SignInPage extends StatefulWidget{
   final CameraDescription camera;
-  final Map<String,double> coord;
+  final Future<Map<String,double>> coord;
 
   const SignInPage({
     super.key,
@@ -30,6 +33,8 @@ class SignInPage extends StatefulWidget{
 }
 
 class _SignInPageState extends State<SignInPage>{
+  double _latitude = 0;
+  double _longitude = 0;
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
   
@@ -57,6 +62,13 @@ class _SignInPageState extends State<SignInPage>{
       widget.camera,
       ResolutionPreset.high,
     );
+
+    (() async{
+      final l = await widget.coord;
+      _latitude = l['lat'] as double;
+      _longitude = l['lon'] as double;
+    })();
+
     _initializeControllerFuture = _controller.initialize();
   }
 
@@ -77,6 +89,8 @@ class _SignInPageState extends State<SignInPage>{
   }
 
   void captureAndUpload(String? pegawai_id) async{
+    final xLocation = await widget.coord;
+
     await _initializeControllerFuture;
     final currentTime = DateTime.now();
     final coord = selectedValue.split('/');
@@ -97,7 +111,7 @@ class _SignInPageState extends State<SignInPage>{
       final target = response['results'][0];
       final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
-      final url = Uri.parse('http://172.24.113.245/lss_absensi/api/mobile/signin');
+      final url = Uri.parse("${Env.api}/api/mobile/signin");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
       final headers = {"Content-type":"application/json"};
       
@@ -125,10 +139,10 @@ class _SignInPageState extends State<SignInPage>{
         "is_status":"hhk",
         "jam_masuk":formattedTime,
         "foto_absen_masuk":publicUrl,
-        "point_latitude":widget.coord['lat'],
-        "point_longitude":widget.coord['lon'], 
-        "latitude_masuk":loc[0],
-        "longitude_masuk":loc[1],
+        "point_latitude":xLocation['lat'],
+        "point_longitude":xLocation['lon'], 
+        "latitude_masuk":sLoc[0],
+        "longitude_masuk":sLoc[1],
         "pegawai_id":pegawai_id
       };
 
@@ -138,6 +152,12 @@ class _SignInPageState extends State<SignInPage>{
         body:jsonEncode(
           params
         )
+      );
+
+      Provider.of<Info>(context, listen: false).signInOrSignOut();
+      Provider.of<Info>(context,listen: false).setLocation(
+        xLocation['lat'] as double,
+        xLocation['lon'] as double
       );
         
       Navigator.pushReplacementNamed(
@@ -181,7 +201,7 @@ class _SignInPageState extends State<SignInPage>{
 
     final List<Location> locations = context.read<Info>().detail.locations;
 
-    final coordinate = '${widget.coord['lat']}/${widget.coord['lon']}';
+    final coordinate = '${_latitude}/${_longitude}';
 
     final List<DropdownMenuItem<String>> _locations = locations.map((l){
       return DropdownMenuItem<String>(
@@ -193,7 +213,7 @@ class _SignInPageState extends State<SignInPage>{
 
     _locations.add(DropdownMenuItem<String>(
       value:'0/0',
-      child:Text('choose your current')
+      child:Text('choose your current location')
     ));
 
     _locations.add(DropdownMenuItem<String>(
@@ -206,8 +226,8 @@ class _SignInPageState extends State<SignInPage>{
     }
 
     num haversinDistance(Map<String,double> coord){
-      final double lat1 = widget.coord['lat'] ?? 0.0;
-      final double lon1 = widget.coord['lon'] ?? 0.0;
+      final double lat1 = _latitude ?? 0.0;
+      final double lon1 = _longitude ?? 0.0;
       final double locationLat = coord['lat'] ?? 0.0;
       final double locationLon = coord['lon'] ?? 0.0;
 
@@ -298,8 +318,8 @@ class _SignInPageState extends State<SignInPage>{
                               )
                             )
                           )
-                      ]
-                    )             
+                        ]
+                      )             
                     )
                   )
                 ]

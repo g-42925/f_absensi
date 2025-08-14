@@ -6,79 +6,91 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import './models/info.dart';
 import './pages/login.dart';
 import './pages/signin.dart';
+import './pages/signout.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import './env/env.dart';
+
 
 
 void main() async {
-  Map<String,double> coordinate = {
-    'lat':0,
-    'lon':0
-  };
+  WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
     url: 'https://vgbkdwivxidacojvcnbr.supabase.co',
     anonKey: 'sb_publishable_25TewwFEWm3n3W-L0Mzm-g_CQLq68Dm',
   );
 
-  WidgetsFlutterBinding.ensureInitialized();
   final cameras = await availableCameras();
 
   final camera = cameras.firstWhere((cam) => cam.lensDirection == CameraLensDirection.front);
 
-  bool isLocationServiceEnabled = await Geolocator.isLocationServiceEnabled();
-
-  LocationPermission locationPermission = await Geolocator.checkPermission();
-
-
-  if(isLocationServiceEnabled){
-    if(locationPermission == LocationPermission.whileInUse){
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      coordinate = {
-        'lat':position.latitude,
-        'lon':position.longitude
-      };
-    }
-    else{
-      locationPermission = await Geolocator.requestPermission();
-      if(locationPermission == LocationPermission.whileInUse){
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
-
-        coordinate = {
-          'lat':position.latitude,
-          'lon':position.longitude
-        };
-      }
-    }
-  }
-
   runApp(
     MultiProvider(
-      providers:[ChangeNotifierProvider(create:(_) => Info())],
-      child: MyApp(coordinate:coordinate,camera:camera)
+      providers: [ChangeNotifierProvider(create: (_) => Info())],
+      child: MyApp(camera: camera),
     )
   );
 }
 
 class MyApp extends StatelessWidget {
   final CameraDescription camera;
-  final Map<String,double> coordinate;
+
+  Future<Map<String,double>> getLocation() async{
+    bool isLocationServiceEnabled = await Geolocator.isLocationServiceEnabled();
+    LocationPermission locationPermission = await Geolocator.checkPermission();
+
+    if(isLocationServiceEnabled){
+      if(locationPermission == LocationPermission.whileInUse){
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        return {
+          'lat':position.latitude,
+          'lon':position.longitude
+        };
+      }
+      else{
+        locationPermission = await Geolocator.requestPermission();
+        if(locationPermission == LocationPermission.whileInUse){
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+
+          return {
+            'lat':position.latitude,
+            'lon':position.longitude
+          };
+        }
+      }
+    }
+    else{
+      return {
+        'lat':0,
+        'lon':0
+      };
+    }
+
+    return {};
+  }
+
   
   MyApp({
     super.key,
     required this.camera,
-    required this.coordinate
   });
 
-  Map<String,WidgetBuilder> createRoute(){
+   Map<String,WidgetBuilder> createRoute(){
+    
     return {
       '/': (_) => LoginPage(),
       '/signin': (_) => SignInPage(
         camera:camera,
-        coord:coordinate
+        coord:getLocation()
+      ),
+      '/signout': (_) => SignOutPage(
+        camera:camera,
+        coord:getLocation()
       ),
       '/feature' : (_) => MyHomePage(
         title:'Flutter',
@@ -90,7 +102,7 @@ class MyApp extends StatelessWidget {
   @override Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      routes:createRoute(),
+      routes: createRoute(),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
@@ -118,6 +130,7 @@ class _MyHomePageState extends State<MyHomePage> {
   
 
   @override Widget build(BuildContext context) {
+    final String date = context.read<Info>().date;
     final bool signedIn = context.read<Info>().signedIn;
     final Company company = context.read<Info>().detail.company;
     final Schedule schedule = context.read<Info>().detail.schedule;
@@ -180,7 +193,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16.0), // ubah angka untuk radius berbeda
                            child: Image.network(
-                            'http://172.24.113.245/lss_absensi/assets/uploaded/components/${company.logo}',
+                            "${Env.api}/assets/uploaded/components/${company.logo}",
                             width: 70,
                             height: 70,
                             fit: BoxFit.cover,
@@ -305,7 +318,39 @@ class _MyHomePageState extends State<MyHomePage> {
               SizedBox(height:16),
               Container(
                 width:double.infinity,
-                child: ElevatedButton.icon(
+                child: signedIn
+                ?
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(
+                      context, 
+                      '/signout'
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.login,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                  label: const Text(
+                    'Presensi Keluar',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red, // hijau tosca
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30), // oval
+                    ),
+                    elevation: 0, // tanpa shadow
+                  ),
+                )
+                :
+                ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pushNamed(
                       context, 

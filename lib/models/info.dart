@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 class Info with ChangeNotifier {
+  String date = "";
+  double latitude = 0; // latitude absen masuk
+  double longitude = 0; // longitude absen masuk
   bool loggedIn = false;
   bool signedIn = false;
   late Company company;
@@ -24,13 +27,21 @@ class Info with ChangeNotifier {
   login(Detail newDetail){
     loggedIn = true;
     detail = newDetail;
+    date = DateFormat('dd/MM/yy').format(DateTime.now());
     notifyListeners();
   }
 
-  signIn(){
-    signedIn = true;
+  signInOrSignOut(){
+    signedIn = !signedIn;
     notifyListeners();
   }
+
+  setLocation(double lat, double lon){
+    latitude = lat;
+    longitude = lon;
+    notifyListeners();
+  }
+  
 
   logout(){
     loggedIn = false;

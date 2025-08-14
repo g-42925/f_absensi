@@ -1,9 +1,10 @@
 import 'dart:convert';
-import '../models/info.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../models/info.dart';
+import '../env/env.dart';
 
 class LoginPage extends StatefulWidget{
 
@@ -18,7 +19,7 @@ class LoginPage extends StatefulWidget{
 class _LoginPageState extends State<LoginPage>{
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final url = Uri.parse('http://172.24.113.245/lss_absensi/api/mobile/login');
+  final url = Uri.parse("${Env.api}/api/mobile/login");
 
   bool visibility = false;
   bool loading = false;
