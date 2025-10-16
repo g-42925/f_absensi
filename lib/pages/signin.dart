@@ -7,103 +7,99 @@ import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:http/http.dart';
-import 'package:provider/provider.dart';
 import 'package:camera/camera.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../models/info.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../env/env.dart';
+import '../providers/global_state.dart';
 
-
-
-class SignInPage extends StatefulWidget{
+class SignInPage extends ConsumerStatefulWidget {
   final CameraDescription camera;
-  final Future<Map<String,double>> coord;
+  final Future<Map<String, double>> coord;
 
-  const SignInPage({
-    super.key,
-    required this.camera,
-    required this.coord
-  });
+  const SignInPage({super.key, required this.camera, required this.coord});
 
-  @override State<SignInPage> createState() => _SignInPageState();
+  @override
+  ConsumerState<SignInPage> createState() => _SignInPageState();
 }
 
-class _SignInPageState extends State<SignInPage>{
-  double _latitude = 0;
-  double _longitude = 0;
+class _SignInPageState extends ConsumerState<SignInPage> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
-  
-  String path = '';
-  String selectedValue = "0/0";
-  String gMapsApiKey = "AIzaSyDeY_0v4-MA7fDR8mf9Ssw6_skjyTFGbE0";
-  Uri gMapsApiUrl = Uri.parse("https://maps.googleapis.com/maps/api/geocode/json");
-  Uri staticMap = Uri.parse("https://maps.googleapis.com/maps/api/staticmap");
+  final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
-  GlobalKey _globalKey = GlobalKey();
   bool preview = false;
 
-  Map<String,String> loc = {
-    'subDistrict':'',
-    'province':'',
-    'country':'',
-    'address':''
+  final controller = TextEditingController();
+
+  String selectedValue = "";
+
+  Map<String, String> loc = {
+    'subDistrict': '',
+    'province': '',
+    'country': '',
+    'address': '',
   };
-  
+
+  String path = "";
 
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(
-      widget.camera,
-      ResolutionPreset.high,
-    );
-
-    (() async{
-      final l = await widget.coord;
-      _latitude = l['lat'] as double;
-      _longitude = l['lon'] as double;
-    })();
-
+    _controller = CameraController(widget.camera, ResolutionPreset.high);
     _initializeControllerFuture = _controller.initialize();
   }
 
-
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  double toRad(double degree) {
+    return degree * pi / 180;
   }
 
-  Future<ByteBuffer> captureScreen() async{
+  num haversineDistance(lat1, lat2, lon1, lon2) {
+    num dLat = toRad(lat2 - lat1);
+    num dLon = toRad(lon2 - lon1);
+    num cosinus1 = cos(toRad(lat1));
+    num cosinus2 = cos(toRad(lat2));
+    num cosValue = cosinus1 * cosinus2;
+    num sinus1 = pow(sin(dLat / 2), 2);
+    num sinus2 = pow(sin(dLon / 2), 2);
+    num v = sinus1 + (cosValue * sinus2);
+
+    double result = 6371 * (1000 * (2 * asin(sqrt(v))));
+
+    return double.parse(result.toStringAsFixed(2));
+  }
+
+  String getYear(DateTime information) {
+    return DateFormat('dd/MM/yy').format(information);
+  }
+
+  Future<ByteBuffer> captureScreen() async {
     await Future.delayed(Duration(milliseconds: 1000));
-    final boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    final boundary =
+        _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ImageByteFormat.png);
     return byteData?.buffer as ByteBuffer;
   }
 
-  void captureAndUpload(String? pegawai_id) async{
+  void captureAndUpload(String? pegawaiId) async {
     final xLocation = await widget.coord;
 
     await _initializeControllerFuture;
     final currentTime = DateTime.now();
     final coord = selectedValue.split('/');
-    
-    final uri = gMapsApiUrl.replace(
-      queryParameters:{
-        'latlng':'${coord[0]},${coord[1]}',
-        'key':'$gMapsApiKey'
-      }
+
+    final uri = Uri.parse(Env.gMapUrl).replace(
+      queryParameters: {
+        'latlng': '${coord[0]},${coord[1]}',
+        'key': Env.gMapKey,
+      },
     );
-   
-    
-    try{
+
+    try {
+      final lt = xLocation['lat'] as double;
+      final ln = xLocation['lon'] as double;
       final sLoc = selectedValue.split('/');
       final img = await _controller.takePicture();
       final requestResponse = await http.get(uri);
@@ -113,328 +109,308 @@ class _SignInPageState extends State<SignInPage>{
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
       final url = Uri.parse("${Env.api}/api/mobile/signin");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
-      final headers = {"Content-type":"application/json"};
-      
+      final headers = {"Content-type": "application/json"};
+
       loc['address'] = target['formatted_address'];
       loc['subDistrict'] = addressComponents[3]['short_name'];
       loc['province'] = addressComponents[5]['short_name'];
       loc['country'] = addressComponents[6]['long_name'];
 
-      setState((){
-        path = img.path!;
-        preview = true!;
+      setState(() {
+        path = img.path;
+        preview = true;
       });
 
       final result = await captureScreen();
 
-      await supabase.storage.from('storage').uploadBinary(
-        fileName,result.asUint8List()
-      );
+      print("test before upload");
 
-      final publicUrl = await supabase.storage.from('storage').getPublicUrl(
-        fileName
-      );
+      await supabase.storage
+          .from('storage')
+          .uploadBinary(fileName, result.asUint8List());
+
+      print("test after upload");
+
+      final publicUrl = supabase.storage.from('storage').getPublicUrl(fileName);
 
       final params = {
-        "is_status":"hhk",
-        "jam_masuk":formattedTime,
-        "foto_absen_masuk":publicUrl,
-        "point_latitude":xLocation['lat'],
-        "point_longitude":xLocation['lon'], 
-        "latitude_masuk":sLoc[0],
-        "longitude_masuk":sLoc[1],
-        "pegawai_id":pegawai_id
+        "is_status": "hhk",
+        "jam_masuk": formattedTime,
+        "foto_absen_masuk": publicUrl,
+        "point_latitude": xLocation['lat'],
+        "point_longitude": xLocation['lon'],
+        "latitude_masuk": sLoc[0],
+        "longitude_masuk": sLoc[1],
+        "pegawai_id": pegawaiId,
       };
 
-      await http.post(
+      final xRequest = await http.post(
         url,
-        headers:headers,
-        body:jsonEncode(
-          params
-        )
+        headers: headers,
+        body: jsonEncode(params),
       );
 
-      Provider.of<Info>(context, listen: false).signInOrSignOut();
-      Provider.of<Info>(context,listen: false).setLocation(
-        xLocation['lat'] as double,
-        xLocation['lon'] as double
-      );
-        
-      Navigator.pushReplacementNamed(
-        context, 
-        '/feature'
-      );
-    }
-    catch(err){
-      if(selectedValue == "0/0"){
+      print(xRequest.body);
+
+      final xResponse = jsonDecode(xRequest.body);
+
+      if (!xResponse['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("select location first"),
-            duration: Duration(seconds: 2), // durasi munculnya
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating, // supaya tidak menempel di bawah, melayang
-            margin: EdgeInsets.fromLTRB(16,0,16,30), // beri jarak dari pinggir layar
+            content: Text(xResponse['message']),
+            duration: Duration(seconds: 4),
           ),
         );
-      }
-      else{
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("something went wrong"),
-            duration: Duration(seconds: 2), // durasi munculnya
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating, // supaya tidak menempel di bawah, melayang
-            margin: EdgeInsets.fromLTRB(16,0,16,30), // beri jarak dari pinggir layar
-          ),
+      } else {
+        ref.read(globalStateProvider.notifier).signIn();
+        ref.read(globalStateProvider.notifier).setPosition(lt, ln);
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/',
+          (Route<dynamic> route) => false,
         );
       }
+    } catch (err) {
+      print("error");
+      print(err);
     }
   }
 
-  String getYear(DateTime information){
-    return DateFormat('dd/MM/yy').format(information);
+  Widget setPreview() {
+    return RepaintBoundary(
+      key: _globalKey,
+      child: Stack(
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            child: Image.file(File(path)),
+          ),
+          Positioned(
+            width: MediaQuery.of(context).size.width,
+            bottom: 60,
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Image.network(
+                    Uri.parse(Env.gStaticMap)
+                        .replace(
+                          queryParameters: {
+                            'center':
+                                "${selectedValue.split('/')[0]},${selectedValue.split('/')[1]}",
+                            'size': '100x200',
+                            'zoom': '18',
+                            'key': Env.gMapKey,
+                          },
+                        )
+                        .toString(),
+                    fit: BoxFit.cover,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        color: Colors.black,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${loc['subDistrict']}, ${loc['province']}",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                            ),
+                            Text(
+                              "${loc['address']}",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            Text(
+                              selectedValue.split('/')[0],
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            Text(
+                              selectedValue.split('/')[1],
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            Text(
+                              getYear(DateTime.now()),
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-
-  @override Widget build(BuildContext context){
-    final Detail detail = context.read<Info>().detail;
-
-    final List<Location> locations = context.read<Info>().detail.locations;
-
-    final coordinate = '${_latitude}/${_longitude}';
-
-    final List<DropdownMenuItem<String>> _locations = locations.map((l){
-      return DropdownMenuItem<String>(
-        value:'${l.lat}/${l.lon}',
-        child:Text(l.locationName),
+  Widget setCamera(List<Map<String, dynamic>>? list, Other other) {
+    final entries = (list ?? []).map((l) {
+      return DropdownMenuEntry(
+        value: '${l['lat']}/${l['lon']}',
+        label: '${l['locationName']}',
       );
-    })
-    .toList();
+    }).toList();
 
-    _locations.add(DropdownMenuItem<String>(
-      value:'0/0',
-      child:Text('choose your current location')
-    ));
+    entries.add(DropdownMenuEntry(value: '0/0', label: 'pilih lokasi'));
 
-    _locations.add(DropdownMenuItem<String>(
-      value:coordinate,
-      child:Text("Other location")
-    ));
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          DropdownMenu<String>(
+            width: MediaQuery.of(context).size.width - 32,
+            hintText: "Pilih lokasi kehadiran",
+            controller: controller,
+            dropdownMenuEntries: entries.toList(),
+            onSelected: (value) async {
+              final c = await widget.coord;
+              final lt = double.parse(value?.split('/')[0] as String);
+              final lng = double.parse(value?.split('/')[1] as String);
+              if (haversineDistance(c['lat'], lt, c['lon'], lng) > 200) {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true, // supaya bisa atur tinggi
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  builder: (context) {
+                    return FractionallySizedBox(
+                      heightFactor: 0.5, // setengah layar
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 60,
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Lokasi tidak tersedia untuk dipilih',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Kamu berada terlalu jauh dari lokasi yang dipilih',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+                controller.clear();
+                selectedValue = "";
+              } else {
+                final lat = value?.split('/')[0] as String;
+                final idx = list?.indexWhere((i) => i['lat'] == lat);
+                final target = list?[idx as int];
+                controller.text = target?['locationName'];
+                selectedValue = "${target?['lat']}/${target?['lon']}";
+              }
+            },
+          ),
+          SizedBox(height: 16),
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: CameraPreview(_controller),
+              ),
+              Positioned(
+                bottom: 20,
+                width: MediaQuery.of(context).size.width - 32,
+                child: Padding(
+                  padding: EdgeInsetsGeometry.all(16),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      captureAndUpload(other.pegawaiId);
+                    },
+                    icon: const Icon(
+                      Icons.login,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Presensi Masuk',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red, // hijau tosca
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 0, // tanpa shadow
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-    num toRad(double v){
-      return (v * pi) / 180;
-    }
-
-    num haversinDistance(Map<String,double> coord){
-      final double lat1 = _latitude ?? 0.0;
-      final double lon1 = _longitude ?? 0.0;
-      final double locationLat = coord['lat'] ?? 0.0;
-      final double locationLon = coord['lon'] ?? 0.0;
-
-      num dLat = toRad(locationLat - lat1);
-      num dLon = toRad(locationLon - lon1);
-      num cosinus1 = cos(toRad(lat1));
-      num cosinus2 = cos(toRad(locationLat));
-      num cosValue = cosinus1 * cosinus2;
-      num sinus1 = pow(sin(dLat / 2), 2);
-      num sinus2 = pow(sin(dLon / 2),2);
-      num v = sinus1 + (cosValue * sinus2);
-
-      double result = 6371 * (1000 * (2 * asin(sqrt(v))));
-
-      return double.parse(result.toStringAsFixed(2));
-    };
+  @override
+  Widget build(BuildContext context) {
+    final globalState = ref.read(globalStateProvider);
+    final other = globalState.other;
+    final location = globalState.location;
 
     return Scaffold(
-      body: FutureBuilder(
-        future:_initializeControllerFuture,
-        builder:(context,snapshot){
-          if (snapshot.connectionState == ConnectionState.done){
-            return preview 
-            ? 
-            RepaintBoundary(
-              key:_globalKey,
-              child:Stack(
-                children:[
-                  Container(
-                    height:MediaQuery.of(context).size.height,
-                    child:Image.file(File(path))
-                  ),
-                  Positioned(
-                    width: MediaQuery.of(context).size.width,
-                    bottom:60,
-                    child:Padding(
-                      padding:EdgeInsets.all(16),
-                      child:Row(
-                        children:[
-                          Image.network(
-                            staticMap.replace(
-                              queryParameters:{
-                                'center':"${selectedValue.split('/')[0]},${selectedValue.split('/')[1]}",
-                                'size':'100x200',
-                                'zoom':'18',
-                                'key':"$gMapsApiKey",
-                              }
-                            )
-                            .toString(),
-                            fit:BoxFit.cover
-                          ),
-                          SizedBox(
-                            width:10
-                          ),
-                          Expanded(
-                            child:Container(
-                              child:Padding(
-                                padding:EdgeInsets.all(12),
-                                child:Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children:[
-                                    Text(
-                                      "${loc['subDistrict']}, ${loc['province']}",
-                                      style:TextStyle(color:Colors.white,fontSize:15)
-                                    ),
-                                    Text(
-                                      "${loc['address']}",
-                                      style:TextStyle(color:Colors.white)
-                                    ),
-                                    Text(
-                                      selectedValue.split('/')[0],
-                                      style:TextStyle(color:Colors.white)
-                                    ),
-                                    Text(
-                                      selectedValue.split('/')[1],
-                                      style:TextStyle(color:Colors.white)
-                                    ),
-                                    Text(
-                                      getYear(DateTime.now()),
-                                      style:TextStyle(color:Colors.white)
-                                    )
-                                  ]
-                                )
-                              ),
-                              decoration:BoxDecoration(
-                                borderRadius:BorderRadius.circular(15),
-                                color:Colors.black.withOpacity(0.5)
-                              )
-                            )
-                          )
-                        ]
-                      )             
-                    )
-                  )
-                ]
-              )
+      appBar: !preview
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
             )
-            : 
-            Container(
-              child:Column(
-                children:[
-                  Expanded(
-                    child:CameraPreview(_controller),
-                  ),
-                  Container(
-                    width:double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.blue, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.2),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value:selectedValue,
-                        icon: const Icon(Icons.arrow_drop_down, color: Colors.blue),
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        dropdownColor: Colors.white,
-                        items: _locations.toList(),
-                        onChanged: (value) {
-                          final List<String> coords = (value as String).split('/');
-                          final Map<String,double> coordinate = {
-                            'lat':double.parse(coords[0]),
-                            'lon':double.parse(coords[1])
-                          };
-                          
-                          if(haversinDistance(coordinate) > 100){
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true, // supaya bisa atur tinggi
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                              ),
-                              builder: (context) {
-                                return FractionallySizedBox(
-                                  heightFactor: 0.5, // setengah layar
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.error_outline,
-                                          color: Colors.red,
-                                          size: 60,
-                                        ),
-                                        const SizedBox(height: 20),
-                                        const Text(
-                                          'Kamu tidak berada di lokasi yang kamu pilih',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const Text(
-                                          'Pilih lokasi yang sesuai',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(fontSize: 16, color: Colors.black54),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }
-                            );
-                          }
-                          else{
-                            setState((){
-                              selectedValue = value!;
-                            });
-                          }
-                        }
-                      )
-                    )
-                  ),
-                ]
-              )
-            );
-          } 
-          else {
-            return const Center(child: CircularProgressIndicator());
+          : null,
+      body: FutureBuilder(
+        future: _initializeControllerFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return preview ? setPreview() : setCamera(location.list, other);
+          } else {
+            return Center(child: CircularProgressIndicator());
           }
-        }
+        },
       ),
-      floatingActionButton: preview ? null : Padding(
-        padding: const EdgeInsets.only(bottom: 60.0), // geser 30px ke atas
-        child: FloatingActionButton(
-          onPressed: () =>  captureAndUpload(
-            detail.pegawai_id
-          ),
-          child: const Icon(
-            Icons.camera_alt
-          ),
-        ) 
-      )
     );
   }
 }

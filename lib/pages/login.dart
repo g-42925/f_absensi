@@ -1,123 +1,179 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../models/info.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/global_state.dart';
 import '../env/env.dart';
 
-class LoginPage extends StatefulWidget{
+class LoginPage extends ConsumerStatefulWidget {
+  const LoginPage({super.key});
 
-  const LoginPage({
-    super.key
-  });
-
-  @override State<LoginPage> createState() => _LoginPageState();
+  @override
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-
-class _LoginPageState extends State<LoginPage>{
+class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final url = Uri.parse("${Env.api}/api/mobile/login");
+  final url = Uri.parse("${Env.api}/api/mobile/loginv2");
 
   bool visibility = false;
   bool loading = false;
 
-  setVisible(){
-    setState((){
+  setVisible() {
+    setState(() {
       visibility = !visibility;
     });
   }
 
-  login() async{
-    setState((){
+  login() async {
+    setState(() {
       loading = true;
     });
 
-    Map<String,String> credential = {
-      'email':emailController.text,
-      'pwd':passwordController.text
-    };
-    
-
-    Map<String,String> headers = {
-      'Content-Type':'application/json'
+    Map<String, String> credential = {
+      'email': emailController.text,
+      'pwd': passwordController.text,
     };
 
-    try{
-      print("sebelum request api");
+    Map<String, String> headers = {'Content-Type': 'application/json'};
 
+    try {
       final response = await http.post(
         url,
-        headers:headers,
-        body:jsonEncode(credential)
+        headers: headers,
+        body: jsonEncode(credential),
       );
 
-      if(response.statusCode == 200){
-        final responseBody = jsonDecode(
-          response.body
-        );     
-        
-        final Company company = Company(
-          name:responseBody['result']['company']['name'],
-          logo:responseBody['result']['company']['logo']
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        final String workSystem = responseBody['result']['workSystem'];
+
+        final start = workSystem == "shift"
+            ? responseBody['result']['clock_in']
+            : responseBody['result']['jam_masuk'];
+        final finish = workSystem == "shift"
+            ? responseBody['result']['clock_out']
+            : responseBody['result']['jam_pulang'];
+        final workDay = workSystem == "shift"
+            ? responseBody['result']['workDay']
+            : responseBody['result']['workDay'];
+        final workSystemName = workSystem == "shift"
+            ? responseBody['result']['workSystemName']
+            : responseBody['result']['workSystemName'];
+
+        final breakStart = workSystem == "shift"
+            ? responseBody['result']['break']
+            : responseBody['result']['jam_istirahat'];
+
+        final breakEnd = workSystem == "shift"
+            ? responseBody['result']['after_break']
+            : responseBody['result']['selesai_istirahat'];
+
+        final Company company = (
+          id: responseBody['result']['company_id'] ?? '',
+          name: responseBody['result']['company_name'] ?? '',
+          logo: responseBody['result']['logo'] ?? '',
+          address: responseBody['result']['address'] ?? '',
+          salaryDate: int.parse(responseBody['result']['salary_date']),
         );
 
-        final Schedule schedule = Schedule(
-          start:responseBody['result']['pattern']['jam_masuk'],
-          finish:responseBody['result']['pattern']['jam_pulang']
+        final Schedule schedule = (
+          start: start ?? '',
+          finish: finish ?? '',
+          breakStart: breakStart,
+          breakFinish: breakEnd,
+          workSystem: workSystem,
+          workSystemName: workSystemName,
         );
 
-        final List<Location> locations = (responseBody['result']['locations'] as List)
-          .map((l){
-            return Location(
-              lat:l['garis_lintang'],
-              lon:l['garis_bujur'],
-              address:l['alamat_lokasi'],
-              locationName:l['nama_lokasi']
-            );
-          })
-          .toList();
+        final Iterable<Map<String, dynamic>> location =
+            (responseBody['result']['locations'] as List).map((l) {
+              return {
+                'lat': l['garis_lintang'] ?? '',
+                'lon': l['garis_bujur'] ?? '',
+                'address': l['alamat_lokasi'] ?? '',
+                'locationName': l['nama_lokasi'] ?? '',
+              };
+            });
 
-        final Detail detail = Detail(
-          pegawai_id:responseBody['result']['pegawai_id'],
-          nama_pegawai:responseBody['result']['nama_pegawai'],
-          nomor_pegawai:responseBody['result']['nomor_pegawai'],
-          email_pegawai:responseBody['result']['email_pegawai'],
-          foto_pegawai:responseBody['result']['foto_pegawai'],
-          company:company,
-          schedule:schedule,
-          locations:locations,
-        );
-        
-        Provider.of<Info>(context, listen: false).login(detail);
-
-        Navigator.pushReplacementNamed(
-          context, 
-          '/feature'
+        final Other other = (
+          pegawaiId: responseBody['result']['pegawai_id'] ?? '',
+          namaPegawai: responseBody['result']['nama_pegawai'] ?? '',
+          nomorPegawai: responseBody['result']['nomor_pegawai'] ?? '',
+          emailPegawai: responseBody['result']['email_pegawai'] ?? '',
+          fotoPegawai: responseBody['result']['foto_pegawai'] ?? '',
+          position: responseBody['result']['position'] ?? '',
+          status: responseBody['result']['status_pegawai'] ?? '',
         );
 
+        final Holiday holiday = (
+          holiday: responseBody['result']['holiday'] as bool,
+          workDay: workDay,
+        );
+
+        final Status status = (signedIn: false, signedOut: false);
+
+        final Auth auth = (
+          loggedIn: true,
+          date: DateTime.now().toIso8601String(),
+        );
+
+        final OverWork overWork = (onOverWork: false);
+
+        ref.read(globalStateProvider.notifier).login((
+          auth: auth,
+          status: status,
+          company: company,
+          schedule: schedule,
+          permission: (id: 0),
+          location: (list: location.toList()),
+          position: (lat: 0, lon: 0),
+          other: other,
+          history: [],
+          coordinate: (lat: 0, lon: 0),
+          holiday: holiday,
+          breakInfo: (onBreak: false, startFrom: ''),
+          overWork: overWork,
+        ));
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/',
+          (Route<dynamic> route) => false,
+        );
+      } else {
+        print("gagal");
       }
-      else{
-        print(response.statusCode);
-      }
-    }
-    catch(e){
+    } catch (e) {
+      print("error");
       print(e);
-    }
-    finally{
-      setState((){
+    } finally {
+      setState(() {
         loading = false;
       });
-      
     }
   }
 
+  @override
+  void initState() {
+    super.initState();
+    final auth = ref.read(globalStateProvider).auth;
 
+    Future.delayed(Duration.zero, () {
+      // if (auth.loggedIn) {
+      //   Navigator.pushNamedAndRemoveUntil(
+      //     context,
+      //     '/home',
+      //     (Route<dynamic> route) => false,
+      //   );
+      // }
+    });
+  }
 
-  @override Widget build(BuildContext context){
-     return Scaffold(
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -126,8 +182,8 @@ class _LoginPageState extends State<LoginPage>{
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Row(
-                  mainAxisAlignment:MainAxisAlignment.center,
-                  children:[
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                     Image.asset(
                       'assets/logo.png', // Ganti dengan path logo-mu
                       height: 80,
@@ -136,11 +192,11 @@ class _LoginPageState extends State<LoginPage>{
                       'workly',
                       style: TextStyle(
                         fontSize: 28,
-                        fontFamily:'Poppins',
+                        fontFamily: 'Poppins',
                         fontWeight: FontWeight.bold,
                       ),
-                    ) 
-                  ]
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 const Text(
@@ -176,7 +232,9 @@ class _LoginPageState extends State<LoginPage>{
                     labelText: 'Password',
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
-                      icon:Icon(visibility ? Icons.visibility_off : Icons.visibility),
+                      icon: Icon(
+                        visibility ? Icons.visibility_off : Icons.visibility,
+                      ),
                       onPressed: () => setVisible(),
                     ),
                   ),
@@ -208,7 +266,9 @@ class _LoginPageState extends State<LoginPage>{
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: loading ? CircularProgressIndicator() : Text('Login')
+                    child: loading
+                        ? CircularProgressIndicator()
+                        : Text('Login'),
                   ),
                 ),
 
