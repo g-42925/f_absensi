@@ -1,35 +1,39 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
+import 'dart:io';
 import 'dart:ui';
-import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../providers/global_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../env/env.dart';
-import 'dart:async';
-import 'package:intl/intl.dart';
+import '../providers/global_state.dart';
 
 class OverWorkEndPage extends ConsumerStatefulWidget {
-  final Future<Map<String, double>> coord;
   final CameraDescription camera;
+  final Future<Map<String, double>> coord;
 
-  const OverWorkEndPage({super.key, required this.coord, required this.camera});
+  const OverWorkEndPage({super.key, required this.camera, required this.coord});
 
   @override
-  ConsumerState<OverWorkEndPage> createState() => _OverWorkEndPageState();
+  ConsumerState<OverWorkEndPage> createState() => _OverWorkStartPageState();
 }
 
-class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
+class _OverWorkStartPageState extends ConsumerState<OverWorkEndPage> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
   final GlobalKey _globalKey = GlobalKey();
-  final supabase = Supabase.instance.client;
+  SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
+  Future<Position>? position;
+
+  final controller = TextEditingController();
 
   double latitude = 0;
   double longitude = 0;
@@ -46,6 +50,51 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
 
   String path = "";
 
+  Future<void> requestPositionPermission() async {
+    setState(() {
+      position = null;
+    });
+
+    await Geolocator.requestPermission();
+
+    setState(() {
+      position = Geolocator.getCurrentPosition();
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = CameraController(widget.camera, ResolutionPreset.high);
+    _initializeControllerFuture = _controller.initialize().then((_) {
+      print("camera ready");
+    });
+    position = Geolocator.getCurrentPosition();
+  }
+
+  double toRad(double degree) {
+    return degree * pi / 180;
+  }
+
+  num haversineDistance(lat1, lat2, lon1, lon2) {
+    num dLat = toRad(lat2 - lat1);
+    num dLon = toRad(lon2 - lon1);
+    num cosinus1 = cos(toRad(lat1));
+    num cosinus2 = cos(toRad(lat2));
+    num cosValue = cosinus1 * cosinus2;
+    num sinus1 = pow(sin(dLat / 2), 2);
+    num sinus2 = pow(sin(dLon / 2), 2);
+    num v = sinus1 + (cosValue * sinus2);
+
+    double result = 6371 * (1000 * (2 * asin(sqrt(v))));
+
+    return double.parse(result.toStringAsFixed(2));
+  }
+
+  String getYear(DateTime information) {
+    return DateFormat('dd/MM/yy').format(information);
+  }
+
   Future<ByteBuffer> captureScreen() async {
     await Future.delayed(Duration(milliseconds: 1000));
     final boundary =
@@ -55,19 +104,58 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
     return byteData?.buffer as ByteBuffer;
   }
 
-  void captureAndUpload(String? pegawaiId) async {
-    await _initializeControllerFuture;
+  bool isOnOffice(double latitude, double longitude) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
+
+    for (var locs in locations) {
+      final lat1 = latitude;
+      final lat2 = double.parse(locs['lat']);
+      final lon1 = longitude;
+      final lon2 = double.parse(locs['lon']);
+      final distance = haversineDistance(lat1, lat2, lon1, lon2);
+      return distance < 10 ? false : true;
+    }
+
+    return false;
+  }
+
+  String setLocation(double latitude, double longitude) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
+
+    for (var locs in locations) {
+      final lat1 = latitude;
+      final lat2 = double.parse(locs['lat']);
+      final lon1 = longitude;
+      final lon2 = double.parse(locs['lon']);
+
+      if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
+        return locs['locationName'];
+      }
+    }
+
+    return locationName;
+  }
+
+  void captureAndUpload(
+    double latitude,
+    double longitude,
+    String? pegawaiId,
+    dynamic id,
+    dynamic id2,
+  ) async {
+    final supabase = Supabase.instance.client;
+    final currentTime = DateTime.now();
 
     final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {
-        'latlng': '${latitude},${longitude}',
-        'key': Env.gMapKey,
-      },
+      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
     );
 
     try {
-      final now = DateTime.now();
-      final today = DateFormat('yyyy-MM-dd').format(now);
+      final state = ref.read(globalStateProvider);
+      final other = state.other;
+      final company = state.company;
       final img = await _controller.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
@@ -75,18 +163,21 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
       final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
       final url = Uri.parse("${Env.api}/api/mobile/overworkend");
+      final formattedTime = DateFormat("HH:mm").format(currentTime);
       final headers = {"Content-type": "application/json"};
-      final globalState = ref.read(globalStateProvider);
-      final employeeId = globalState.other.pegawaiId;
-      final time = DateFormat('HH:mm:ss').format(now);
+      final now = DateTime.now(); // ambil tanggal sekarang
+      final formatted = DateFormat('yyyy-MM-dd').format(now);
+      final formattedSecond = DateFormat('HH:mm:ss').format(now);
+      final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
 
       loc['address'] = target['formatted_address'];
-
       loc['subDistrict'] = addressComponents[3]['short_name'];
       loc['province'] = addressComponents[5]['short_name'];
       loc['country'] = addressComponents[6]['long_name'];
 
       setState(() {
+        latitude = latitude;
+        longitude = longitude;
         path = img.path;
         preview = true;
       });
@@ -97,24 +188,63 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
           .from('storage')
           .uploadBinary(fileName, result.asUint8List());
 
-      final publicUrl = supabase.storage.from('storage').getPublicUrl(fileName);
+      final publicUrl = await supabase.storage
+          .from('storage')
+          .getPublicUrl(fileName);
 
-      final params = {'date': today, 'until': time};
+      final params = {
+        "finish_photo": publicUrl,
+        "finish_location": "$latitude/$longitude",
+        "employee_id": pegawaiId,
+        'employee_overwork_detail_id': id,
+        'employee_overwork_id': id2,
+      };
 
-      try {
-        await http.post(url, headers: headers, body: jsonEncode(params));
+      final xRequest = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode(params),
+      );
 
-        ref.read(globalStateProvider.notifier).overWorkEnd();
+      final xResponse = jsonDecode(xRequest.body);
+
+      if (!xResponse['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("coba beberapa saat lagi"),
+            duration: Duration(seconds: 4),
+          ),
+        );
+
+        Navigator.pop(context);
+      } else {
+        // final response = await supabase
+        //     .from('companies')
+        //     .select()
+        //     .eq('company_id', company.id)
+        //     .maybeSingle();
+
+        // if (xResponse['late'] as bool) {
+        //   await supabase.from('messages').insert({
+        //     'receiver_id': response?['account_id'],
+        //     'date': formatted,
+        //     'created_at': timestamp,
+        //     'image': publicUrl,
+        //     'employee_id': pegawaiId,
+        //     'employee_name': other.namaPegawai,
+        //     'late': xResponse['late'] as bool,
+        //     'late_diff': xResponse['late'] as bool ? xResponse['late_diff'] : 0,
+        //     'action_type': 'melakukan absen masuk',
+        //     'action_time': formattedSecond,
+        //     'on_office': isOnOffice(latitude, longitude),
+        //   });
+        // }
 
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/',
           (Route<dynamic> route) => false,
         );
-
-        print("done");
-      } catch (e) {
-        print(e);
       }
     } catch (err) {
       print("error");
@@ -122,11 +252,7 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
     }
   }
 
-  String getYear(DateTime information) {
-    return DateFormat('dd/MM/yy').format(information);
-  }
-
-  Widget setPreview() {
+  Widget setPreview(dynamic id) {
     return RepaintBoundary(
       key: _globalKey,
       child: Stack(
@@ -204,11 +330,12 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
     );
   }
 
-  Widget setCamera(List<Map<String, dynamic>>? list, Other other) {
-    final globalState = ref.read(globalStateProvider);
-    final schedule = globalState.schedule;
-    final workSystemName = schedule.workSystemName;
-
+  Widget setCamera(
+    List<Map<String, dynamic>>? list,
+    Other other,
+    dynamic id,
+    dynamic id2,
+  ) {
     final entries = (list ?? []).map((l) {
       return DropdownMenuEntry(
         value: '${l['lat']}/${l['lon']}',
@@ -218,134 +345,115 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
 
     entries.add(DropdownMenuEntry(value: '0/0', label: 'pilih lokasi'));
 
-    return Stack(
-      children: [
-        Center(
-          child: ClipOval(
-            child: SizedBox(
-              width: 300,
-              height: 300,
-              child: CameraPreview(_controller),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 110,
-          left: 0,
-          right: 0,
-          child: Container(
-            padding: EdgeInsets.all(12),
-            margin: EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              children: [
-                Row(
+    final globalState = ref.read(globalStateProvider);
+    final schedule = globalState.schedule;
+    final workSystemName = schedule.workSystemName;
+
+    return position != null
+        ? FutureBuilder(
+            future: position,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  requestPositionPermission();
+                });
+                return Center(child: CircularProgressIndicator());
+              } else {
+                final response = snapshot.data;
+                final latitude = response?.latitude;
+                final longitude = response?.longitude;
+
+                return Stack(
                   children: [
-                    Icon(Icons.calendar_today, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      "$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}",
+                    Center(
+                      child: ClipOval(
+                        child: SizedBox(
+                          width: 300,
+                          height: 300,
+                          child: CameraPreview(_controller),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 110,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.all(12),
+                        margin: EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  "$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}",
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 18,
+                                  color: Colors.red,
+                                ),
+                                SizedBox(width: 8),
+                                Text(setLocation(latitude!, longitude!)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 20,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        margin: EdgeInsets.all(16), // margin di semua sisi
+                        width: double.infinity, // membuat selebar layar
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[600], // hijau gelap
+                            padding: EdgeInsets.symmetric(
+                              vertical: 16,
+                            ), // tinggi button
+                          ),
+                          onPressed: () {
+                            captureAndUpload(
+                              latitude,
+                              longitude,
+                              other.pegawaiId,
+                              id,
+                              id2,
+                            );
+                          },
+                          child: Text(
+                            "Mulai",
+                            style: TextStyle(
+                              color: Colors.white, // warna teks putih
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-                ),
-                SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.location_on, size: 18, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text(locationName),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 20,
-          left: 0,
-          right: 0,
-          child: Container(
-            margin: EdgeInsets.all(16), // margin di semua sisi
-            width: double.infinity, // membuat selebar layar
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600], // hijau gelap
-                padding: EdgeInsets.symmetric(vertical: 16), // tinggi button
-              ),
-              onPressed: () {
-                captureAndUpload(other.pegawaiId);
-              },
-              child: Text(
-                "Selesai",
-                style: TextStyle(
-                  color: Colors.white, // warna teks putih
-                  fontSize: 16,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  double toRad(double degree) {
-    return degree * pi / 180;
-  }
-
-  num haversineDistance(lat1, lat2, lon1, lon2) {
-    num dLat = toRad(lat2 - lat1);
-    num dLon = toRad(lon2 - lon1);
-    num cosinus1 = cos(toRad(lat1));
-    num cosinus2 = cos(toRad(lat2));
-    num cosValue = cosinus1 * cosinus2;
-    num sinus1 = pow(sin(dLat / 2), 2);
-    num sinus2 = pow(sin(dLon / 2), 2);
-    num v = sinus1 + (cosValue * sinus2);
-
-    double result = 6371 * (1000 * (2 * asin(sqrt(v))));
-
-    return double.parse(result.toStringAsFixed(2));
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
-    _initializeControllerFuture = _controller.initialize();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(Duration(seconds: 2));
-      final globalState = ref.read(globalStateProvider);
-      final locations = globalState.location.list;
-      final coordinate = await widget.coord;
-
-      for (var locs in locations) {
-        final lat1 = coordinate['lat'];
-        final lat2 = double.parse(locs['lat']);
-        final lon1 = coordinate['lon'];
-        final lon2 = double.parse(locs['lon']);
-
-        if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
-          setState(() {
-            latitude = lat2;
-            longitude = lon2;
-            locationName = locs['locationName'];
-          });
-        } else {
-          setState(() {
-            latitude = lat1 as double;
-            longitude = lon1 as double;
-          });
-        }
-      }
-
-      print(latitude);
-      print(longitude);
-    });
+                );
+              }
+            },
+          )
+        : SizedBox();
   }
 
   @override
@@ -353,13 +461,25 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;
     final location = globalState.location;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     return Scaffold(
+      appBar: !preview
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+            )
+          : null,
       body: FutureBuilder(
         future: _initializeControllerFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            return preview ? setPreview() : setCamera(location.list, other);
+            return preview
+                ? setPreview(args['id'])
+                : setCamera(location.list, other, args['id'], args['id2']);
           } else {
             return Center(child: CircularProgressIndicator());
           }

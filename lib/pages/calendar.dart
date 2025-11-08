@@ -62,7 +62,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final employeeId = globalState.other.pegawaiId;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Kalender Flutter")),
+      appBar: AppBar(title: const Text("Kalender")),
       body: Column(
         children: [
           TableCalendar(
@@ -100,6 +100,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         return Center(child: Text("Error: ${snapshot.error}"));
                       } else {
                         final response = snapshot.data!;
+                        print(response.body);
                         final data = jsonDecode(response.body);
                         final permission = List<Map<String, dynamic>>.from(
                           data['permission'],
@@ -114,9 +115,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         return ListView(
                           children: [
                             ListView.builder(
-                              itemCount: permission.isNotEmpty
-                                  ? permission.length
-                                  : 0,
+                              itemCount: permission.length,
                               shrinkWrap: true,
                               physics: NeverScrollableScrollPhysics(),
                               itemBuilder: (context, index) {
@@ -129,9 +128,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                               },
                             ),
                             ListView.builder(
-                              itemCount: globalHolidays.isNotEmpty
-                                  ? globalHolidays.length
-                                  : 0,
+                              itemCount: globalHolidays.length,
                               shrinkWrap: true,
                               physics: NeverScrollableScrollPhysics(),
                               itemBuilder: (context, index) {
@@ -144,9 +141,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                               },
                             ),
                             ListView.builder(
-                              itemCount: companyHolidays.isNotEmpty
-                                  ? globalHolidays.length
-                                  : 0,
+                              itemCount: companyHolidays.length,
                               shrinkWrap: true,
                               physics: NeverScrollableScrollPhysics(),
                               itemBuilder: (context, index) {

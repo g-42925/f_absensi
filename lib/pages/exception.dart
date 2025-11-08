@@ -96,25 +96,107 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                             vertical: 6,
                           ),
                           elevation: 3,
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.event_note,
-                              color: getStatusColor(item['status'])['color'],
-                            ),
-                            title: Text(
-                              "Tanggal: ${item['date']}",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text("Reason: ${item['reason']}"),
-                            trailing: Text(
-                              getStatusColor(
-                                item['status'],
-                              )['status'].toString().toUpperCase(),
-                              style: TextStyle(
-                                color: getStatusColor(item['status'])['color'],
-                                fontWeight: FontWeight.bold,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: ListTile(
+                                  leading: Icon(
+                                    Icons.event_note,
+                                    color: getStatusColor(
+                                      item['status'],
+                                    )['color'],
+                                  ),
+                                  title: Text(
+                                    "Tanggal: ${item['date']}",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  subtitle: Text("Reason: ${item['reason']}"),
+                                ),
                               ),
-                            ),
+                              SizedBox(
+                                child: item['type'] == "Di luar kantor"
+                                    ? TextButton(
+                                        child: Text("Presensi masuk"),
+                                        onPressed: () {
+                                          if (item['status'] == "1") {
+                                            ref
+                                                .read(
+                                                  globalStateProvider.notifier,
+                                                )
+                                                .fFOCIMakeAllowed();
+                                            Navigator.pushNamed(
+                                              context,
+                                              '/signin',
+                                            );
+                                          } else {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Pengajuan absen di luar belum distejui',
+                                                ),
+                                                backgroundColor: Colors.blue,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      )
+                                    : SizedBox(),
+                              ),
+                              SizedBox(
+                                child: item['type'] == "Belum kembali ke kantor"
+                                    ? TextButton(
+                                        child: Text("Presensi pulang"),
+                                        onPressed: () {
+                                          if (item['status'] == "1") {
+                                            ref
+                                                .read(
+                                                  globalStateProvider.notifier,
+                                                )
+                                                .fFOCOMakeAllowed();
+                                            Navigator.pushNamed(
+                                              context,
+                                              '/signout',
+                                            );
+                                          } else {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Pengajuan absen di luar belum distejui',
+                                                ),
+                                                backgroundColor: Colors.blue,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      )
+                                    : SizedBox(),
+                              ),
+                              TextButton(
+                                child: Text("Edit"),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/exception_edit',
+                                    arguments: {
+                                      'id': item['id'],
+                                      'date': item['date'],
+                                      'reason': item['reason'],
+                                      'status': item['status'],
+                                      'type': item['type'],
+                                      'image': item['image'],
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         );
                       },

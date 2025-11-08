@@ -1,13 +1,29 @@
+import 'package:f_absensi/pages/activity.dart';
 import 'package:f_absensi/pages/break.dart';
 import 'package:f_absensi/pages/break_end.dart';
+import 'package:f_absensi/pages/claim.dart';
+import 'package:f_absensi/pages/claim_submit.dart';
+import 'package:f_absensi/pages/employees.dart';
 import 'package:f_absensi/pages/exception.dart';
 import 'package:f_absensi/pages/exception_add.dart';
+import 'package:f_absensi/pages/exception_edit.dart';
+import 'package:f_absensi/pages/failed_sync.dart';
 import 'package:f_absensi/pages/leave.dart';
 import 'package:f_absensi/pages/leave_apply.dart';
+import 'package:f_absensi/pages/notification.dart';
 import 'package:f_absensi/pages/overwork.dart';
+import 'package:f_absensi/pages/overwork_add.dart';
 import 'package:f_absensi/pages/overwork_end.dart';
+import 'package:f_absensi/pages/overwork_start.dart';
 import 'package:f_absensi/pages/permission_success.dart';
 import 'package:f_absensi/pages/salary.dart';
+import 'package:f_absensi/pages/salary_slip.dart';
+import 'package:f_absensi/pages/schedule.dart';
+import 'package:f_absensi/pages/task.dart';
+import 'package:f_absensi/pages/task_add.dart';
+import 'package:f_absensi/pages/task_edit.dart';
+import 'package:f_absensi/pages/task_end.dart';
+import 'package:f_absensi/pages/task_start.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
@@ -15,7 +31,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hydrated_riverpod/hydrated_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import './env/env.dart';
 import './pages/home.dart';
 import './pages/login.dart';
@@ -70,12 +85,31 @@ class MyApp extends StatelessWidget {
   Map<String, WidgetBuilder> createRoute(BuildContext context) {
     return {
       '/': (_) => MyHomePage(),
+      '/claim': (_) => ClaimPage(),
+      '/make_task': (_) => TaskAddPage(),
+      '/failed_sync': (_) => FailedSyncPage(),
+      '/task_edit': (_) => TaskEditPage(),
+      '/exception_edit': (_) => ExceptionEditPage(),
+      '/task_start': (_) =>
+          TaskStartPage(camera: camera, coord: getLocation(context)),
+      '/task_end': (_) =>
+          TaskEndPage(camera: camera, coord: getLocation(context)),
+      '/task': (_) => TaskPage(camera: camera, coord: getLocation(context)),
+      '/employees': (_) => EmployeesPage(),
+      '/notification': (_) => NotificationPage(),
+      '/activity': (_) => ActivityPage(),
+      '/schedule': (_) => SchedulePage(),
+      '/claim_submit': (_) => ClaimSubmitPage(),
       '/salary': (_) => SalaryPage(),
+      '/salary_slip': (_) => SalarySlipPage(),
       '/exception': (_) => ExceptionPage(),
       '/makeexception': (_) => ExceptionAddPage(),
       '/break': (_) => BreakPage(coord: getLocation(context)),
       '/overwork': (_) =>
           OverWorkPage(camera: camera, coord: getLocation(context)),
+      '/makeoverwork': (_) => OverWorkAddPage(),
+      '/overwork_start': (_) =>
+          OverWorkStartPage(camera: camera, coord: getLocation(context)),
       '/overwork_end': (_) =>
           OverWorkEndPage(camera: camera, coord: getLocation(context)),
       '/breakend': (_) =>

@@ -4,6 +4,7 @@ import 'package:f_absensi/pages/login.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/global_state.dart';
 import '../env/env.dart';
 
@@ -17,6 +18,7 @@ class MyHomePage extends ConsumerStatefulWidget {
 class _MyHomePageState extends ConsumerState<MyHomePage> {
   bool stillOnTheSameDay = false;
   late Future<bool>? loggedIn;
+  final supabase = Supabase.instance.client;
 
   Future<void> isLoggedIn(bool loggedIn) async {
     setState(() {
@@ -24,25 +26,54 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     });
   }
 
+  void autoLogout(
+    BuildContext context,
+    bool loggedIn,
+    String date,
+    String id,
+  ) async {
+    final authDate = DateTime.parse(date);
+    final schedule = ref.read(globalStateProvider).schedule;
+
+    final parts = schedule.nextStart.split(':');
+
+    final expired = DateTime(
+      authDate.year,
+      authDate.month,
+      authDate.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    ).add(Duration(days: 1, hours: -1));
+
+    if (loggedIn) {
+      if (DateTime.now().isAfter(expired)) {
+        try {
+          await supabase.from('sessions').delete().eq('employee_id', id);
+          Future.delayed(const Duration(seconds: 3), () {
+            Navigator.pushReplacementNamed(context, '/login');
+          });
+        } catch (e) {
+          Navigator.pushReplacementNamed(context, '/failed_sync');
+        }
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
     final auth = ref.read(globalStateProvider).auth;
+    final other = ref.read(globalStateProvider).other;
 
-    isLoggedIn(auth.loggedIn);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      isLoggedIn(auth.loggedIn);
 
-    if (auth.loggedIn) {
-      final authDate = DateTime.parse(auth.date);
-
-      final expired = DateTime(authDate.year, authDate.month, authDate.day + 1);
-
-      if (DateTime.now().isAfter(expired)) {
-        Future.delayed(const Duration(seconds: 3), () {
-          Navigator.pushReplacementNamed(context, '/login');
-        });
+      if (auth.loggedIn) {
+        autoLogout(context, auth.loggedIn, auth.date, other.pegawaiId);
       }
-    }
+    });
   }
 
   bool iSOTSD(String date) {
@@ -57,7 +88,13 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
   DateTime makeTime(DateTime param) {
     DateTime now = DateTime.now();
 
-    return DateTime(now.year, now.month, now.day, param.hour, param.minute);
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+      param.hour,
+      param.minute,
+    ).subtract(Duration(hours: 1));
   }
 
   ElevatedButton? createButton(
@@ -67,14 +104,33 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     Schedule schedule,
     bool onOverWork,
   ) {
+    final globalState = ref.read(globalStateProvider);
+    final holiday = globalState.holiday;
+    final schedule = globalState.schedule;
     DateTime targetTime = DateFormat("HH:mm").parse(schedule.start);
-    DateTime targetTimeX = DateFormat("HH:mm").parse(schedule.finish);
+    DateTime targetTimeX = DateFormat(
+      "HH:mm",
+    ).parse(schedule.finish).add(Duration(hours: 1));
+
+    DateTime restriction = targetTimeX.add(
+      Duration(minutes: int.parse(schedule.limit)),
+    );
 
     if (!status.signedIn && !status.signedOut) {
       return ElevatedButton.icon(
         onPressed: () {
           if (DateTime.now().isAfter(makeTime(targetTime))) {
-            Navigator.pushNamed(context, '/signin');
+            if (holiday.holiday || !holiday.workDay) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('this feature is not accessible for today'),
+                  duration: Duration(seconds: 2), // lama munculnya
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            } else {
+              Navigator.pushNamed(context, '/signin');
+            }
           } else {
             showModalBottomSheet(
               context: context,
@@ -170,7 +226,8 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     if (status.signedIn && !status.signedOut) {
       return ElevatedButton.icon(
         onPressed: () {
-          if (DateTime.now().isAfter(makeTime(targetTimeX))) {
+          if (DateTime.now().isAfter(makeTime(targetTimeX)) &&
+              DateTime.now().isBefore(makeTime(restriction))) {
             Navigator.pushNamed(context, '/signout');
           } else {
             showModalBottomSheet(
@@ -195,7 +252,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                         ),
                         const SizedBox(height: 20),
                         const Text(
-                          'Belum bisa pulang sekarang',
+                          'Belum bisa pulang atau sudah melewati batas waktu',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 20,
@@ -300,6 +357,26 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     return Center(child: CircularProgressIndicator());
   }
 
+  int _selectedIndex = 0;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (index == 3) {
+      Navigator.pushNamed(context, '/notification');
+    }
+
+    if (index == 2) {
+      Navigator.pushNamed(context, '/activity');
+    }
+
+    if (index == 1) {
+      Navigator.pushNamed(context, '/schedule');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final globalState = ref.read(globalStateProvider);
@@ -312,6 +389,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     final breakStartTime = auth.loggedIn ? schedule.breakStart : "00:00";
     final breakStart = DateFormat("HH:mm").parse(breakStartTime);
     final onOverWork = globalState.overWork.onOverWork;
+    final pp = globalState.other.fotoPegawai;
 
     final String message =
         "maka sesungguhnya bersama kesulitan itu ada kemudahan";
@@ -319,278 +397,300 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     return auth.loggedIn
         ? Scaffold(
             appBar: AppBar(
+              automaticallyImplyLeading: false,
               title: Row(
                 children: [
-                  Image.asset(
-                    'assets/logo.png', // Ganti dengan path image kamu
-                    height: 30,
-                  ),
+                  Image.asset('assets/logo.png', height: 50),
                   const SizedBox(width: 8),
-                  const Text('workly', style: TextStyle(color: Colors.black)),
+                  const Text(
+                    'Leryn Absensi',
+                    style: TextStyle(color: Colors.black),
+                  ),
                 ],
               ),
-              backgroundColor: Colors.white,
+              backgroundColor: Color(0xFFF5DEB3),
               elevation: 0,
-              actions: const [
+              actions: [
                 Padding(
                   padding: EdgeInsets.all(8.0),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.teal,
-                    child: Text('TR', style: TextStyle(color: Colors.white)),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24), // sudut melengkung
+                    child: Image.network(
+                      pp, // Ganti dengan path image kamu
+                      height: 45,
+                    ),
                   ),
                 ),
               ],
             ),
-            body: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF004D40), // hijau toska sangat gelap
-                            Color(0xFF00796B), // hijau toska gelap
-                            Color(0xFF26A69A), // toska terang
-                          ],
-                          stops: [0.0, 0.5, 1.0],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  16.0,
-                                ), // ubah angka untuk radius berbeda
-                                child: Image.network(
-                                  "${Env.api}/assets/uploaded/components/${company.logo}",
-                                  width: 70,
-                                  height: 70,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              SizedBox(width: 15),
-                              SizedBox(
-                                width: 250,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      company.name,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                    Text(
-                                      message,
-                                      overflow: TextOverflow.visible,
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ],
-                                ),
-                              ),
+            body: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5DEB3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF004D40), // hijau toska sangat gelap
+                              Color(0xFF00796B), // hijau toska gelap
+                              Color(0xFF26A69A), // toska terang
                             ],
+                            stops: [0.0, 0.5, 1.0],
                           ),
-                          SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              color: Colors.white,
-                            ),
-                            width: double.infinity,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: holiday.holiday || !holiday.workDay
-                                  ? [Text("Selamat Berlibur")]
-                                  : [
-                                      Text("Jadwal Anda Hari Ini"),
-                                      SizedBox(height: 6),
-                                      SizedBox(
-                                        width:
-                                            MediaQuery.of(context).size.width *
-                                            0.5,
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(Icons.login),
-                                                SizedBox(width: 4),
-                                                Text(schedule.start),
-                                              ],
-                                            ),
-                                            Text('...'),
-                                            Row(
-                                              children: [
-                                                Icon(Icons.logout),
-                                                SizedBox(width: 4),
-                                                Text(schedule.finish),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    GridView.count(
-                      crossAxisCount: 4,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        IconLabel(
-                          icon: Icons.local_cafe,
-                          label: 'Istirahat',
-                          onPressed: () {
-                            if (DateTime.now().isAfter(makeTime(breakStart))) {
-                              Navigator.pushNamed(context, '/break');
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Belum waktunya istirahat"),
-                                  duration: Duration(seconds: 2), // lama tampil
-                                  backgroundColor:
-                                      Colors.blue, // warna background
-                                ),
-                              );
-                            }
-                          },
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        IconLabel(
-                          icon: Icons.access_time,
-                          label: 'Lembur',
-                          onPressed: () {
-                            if (status.signedOut) {
-                              Navigator.pushNamed(context, '/overwork');
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text("Belum bisa akses fitur ini"),
-                                  duration: Duration(
-                                    seconds: 2,
-                                  ), // lama tampilnya
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        IconLabel(
-                          icon: Icons.event_busy,
-                          label: 'Cuti',
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/leave');
-                          },
-                        ),
-                        IconLabel(
-                          icon: Icons.door_front_door,
-                          label: 'Izin',
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/permission');
-                          },
-                        ),
-                        IconLabel(icon: Icons.work, label: 'Pekerjaan'),
-                        IconLabel(
-                          icon: Icons.calendar_today,
-                          label: 'Kalender',
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/calendar');
-                          },
-                        ),
-                        IconLabel(icon: Icons.group, label: 'Karyawan'),
-                        IconLabel(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/salary');
-                          },
-                          icon: Icons.account_balance_wallet,
-                          label: 'Gaji',
-                        ),
-                        IconLabel(
-                          icon: Icons.assignment_turned_in,
-                          label: 'Klaim',
-                        ),
-                        IconLabel(
-                          icon: Icons.note_add,
-                          label: 'Pengecualian',
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/exception');
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 0),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD1FFDC), // Hijau muda
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  "Ringkasan Kehadiran",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(
+                                    16.0,
+                                  ), // ubah angka untuk radius berbeda
+                                  child: Image.network(
+                                    "${Env.api}/assets/uploaded/components/${company.logo}",
+                                    width: 70,
+                                    height: 70,
+                                    fit: BoxFit.cover,
                                   ),
                                 ),
-                                SizedBox(height: 4),
-                                Text(
-                                  "Periksa kinerja rekap Anda bulan ini",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black54,
+                                SizedBox(width: 15),
+                                SizedBox(
+                                  width: 250,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        company.name,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                      Text(
+                                        message,
+                                        overflow: TextOverflow.visible,
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
+                            SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.white,
+                              ),
+                              width: double.infinity,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: holiday.holiday || !holiday.workDay
+                                    ? [Text("Selamat Berlibur")]
+                                    : [
+                                        Text("Jadwal Anda Hari Ini"),
+                                        SizedBox(height: 6),
+                                        SizedBox(
+                                          width:
+                                              MediaQuery.of(
+                                                context,
+                                              ).size.width *
+                                              0.5,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.login),
+                                                  SizedBox(width: 4),
+                                                  Text(schedule.start),
+                                                ],
+                                              ),
+                                              Text('...'),
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.logout),
+                                                  SizedBox(width: 4),
+                                                  Text(schedule.finish),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      GridView.count(
+                        crossAxisCount: 4,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          IconLabel(
+                            icon: Icons.local_cafe,
+                            label: 'Istirahat',
+                            onPressed: () {
+                              if (DateTime.now().isAfter(
+                                makeTime(breakStart),
+                              )) {
+                                Navigator.pushNamed(context, '/break');
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Belum waktunya istirahat"),
+                                    duration: Duration(
+                                      seconds: 2,
+                                    ), // lama tampil
+                                    backgroundColor:
+                                        Colors.blue, // warna background
+                                  ),
+                                );
+                              }
+                            },
                           ),
-                          Image.asset(
-                            'assets/ilustrasi.png', // ganti dengan path gambar kamu
-                            height: 80,
+                          IconLabel(
+                            icon: Icons.access_time,
+                            label: 'Lembur',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/overwork');
+                            },
+                          ),
+                          IconLabel(
+                            icon: Icons.event_busy,
+                            label: 'Cuti',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/leave');
+                            },
+                          ),
+                          IconLabel(
+                            icon: Icons.door_front_door,
+                            label: 'Izin',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/permission');
+                            },
+                          ),
+                          IconLabel(
+                            icon: Icons.calendar_today,
+                            label: 'Kalender',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/calendar');
+                            },
+                          ),
+                          IconLabel(
+                            icon: Icons.group,
+                            label: 'Karyawan',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/employees');
+                            },
+                          ),
+                          IconLabel(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/salary');
+                            },
+                            icon: Icons.account_balance_wallet,
+                            label: 'Gaji',
+                          ),
+                          IconLabel(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/claim');
+                            },
+                            icon: Icons.assignment_turned_in,
+                            label: 'Klaim',
+                          ),
+                          IconLabel(
+                            icon: Icons.note_add,
+                            label: 'Pengecualian',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/exception');
+                            },
+                          ),
+                          IconLabel(
+                            icon: Icons.work,
+                            label: 'Tugas',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/task');
+                            },
                           ),
                         ],
                       ),
-                    ),
-                    SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: createButton(
-                        status,
-                        breakInfo,
-                        iSOTSD(auth.date),
-                        schedule,
-                        onOverWork,
+                      const SizedBox(height: 0),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD1FFDC), // Hijau muda
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text(
+                                    "Ringkasan Kehadiran",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    "Periksa kinerja rekap Anda bulan ini",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Image.asset(
+                              'assets/ilustrasi.png', // ganti dengan path gambar kamu
+                              height: 80,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: createButton(
+                          status,
+                          breakInfo,
+                          iSOTSD(auth.date),
+                          schedule,
+                          onOverWork,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
             bottomNavigationBar: BottomNavigationBar(
               selectedItemColor: Colors.teal,
               unselectedItemColor: Colors.black54,
-              currentIndex: 0,
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped, // di sinilah event klik ditangani
               type: BottomNavigationBarType.fixed, // <== Tambahkan ini
               items: const [
                 BottomNavigationBarItem(

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
@@ -30,6 +31,11 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
   final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
+  late Future<Position>? position;
+
+  double latitude = 0;
+  double longitude = 0;
+  String locationName = 'Anda berada di luar area presensi';
 
   final controller = TextEditingController();
 
@@ -44,11 +50,41 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   String path = "";
 
+  Future<void> requestPositionPermission() async {
+    setState(() {
+      position = null;
+    });
+
+    await Geolocator.requestPermission();
+
+    setState(() {
+      position = Geolocator.getCurrentPosition();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    super.initState();
     _controller = CameraController(widget.camera, ResolutionPreset.high);
     _initializeControllerFuture = _controller.initialize();
+    position = Geolocator.getCurrentPosition();
+  }
+
+  bool isOnOffice(double latitude, double longitude) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
+
+    for (var locs in locations) {
+      final lat1 = latitude;
+      final lat2 = double.parse(locs['lat']);
+      final lon1 = longitude;
+      final lon2 = double.parse(locs['lon']);
+      final distance = haversineDistance(lat1, lat2, lon1, lon2);
+      return distance > 50 ? false : true;
+    }
+
+    return false;
   }
 
   Future<ByteBuffer> captureScreen() async {
@@ -83,23 +119,24 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
     return DateFormat('dd/MM/yy').format(information);
   }
 
-  void captureAndUpload(String? pegawaiId) async {
-    final c = {
-      'lat': double.parse(selectedValue.split('/')[0]),
-      'lon': double.parse(selectedValue.split('/')[1]),
-    };
-
-    await _initializeControllerFuture;
+  void captureAndUpload(
+    double latitude,
+    double longitude,
+    String? pegawaiId,
+  ) async {
     final currentTime = DateTime.now();
 
     final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {
-        'latlng': "${c['lat']},${c['lon']}",
-        'key': Env.gMapKey,
-      },
+      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
     );
 
     try {
+      final state = ref.read(globalStateProvider);
+      final company = state.company;
+      final other = state.other;
+
+      final now = DateTime.now(); // ambil tanggal sekarang
+
       final img = await _controller.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
@@ -109,6 +146,9 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       final url = Uri.parse("${Env.api}/api/mobile/signout");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
       final headers = {"Content-type": "application/json"};
+      final formatted = DateFormat('yyyy-MM-dd').format(now);
+      final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+      final formattedSecond = DateFormat('HH:mm:ss').format(now);
 
       loc['address'] = target['formatted_address'];
       loc['subDistrict'] = addressComponents[3]['short_name'];
@@ -116,6 +156,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       loc['country'] = addressComponents[6]['long_name'];
 
       setState(() {
+        latitude = latitude;
+        longitude = longitude;
         path = img.path;
         preview = true;
       });
@@ -133,20 +175,68 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       final params = {
         "jam_keluar": formattedTime,
         "foto_absen_keluar": publicUrl,
-        "latitude_keluar": c['lat'],
-        "longitude_keluar": c['lon'],
+        "latitude_keluar": latitude,
+        "longitude_keluar": longitude,
         "pegawai_id": pegawaiId,
       };
 
-      await http.post(url, headers: headers, body: jsonEncode(params));
+      if (state.config.ffocoa || isOnOffice(latitude, longitude)) {
+        final xRequest = await http.post(
+          url,
+          headers: headers,
+          body: jsonEncode(params),
+        );
 
-      ref.read(globalStateProvider.notifier).signOut();
+        final xResponse = jsonDecode(xRequest.body);
+        if (!xResponse['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(xResponse['message']),
+              duration: Duration(seconds: 4),
+            ),
+          );
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/',
-        (Route<dynamic> route) => false, // hapus semua route lama
-      );
+          Navigator.pop(context);
+        } else {
+          final response = await supabase
+              .from('companies')
+              .select()
+              .eq('company_id', company.id)
+              .maybeSingle();
+
+          if (xResponse['late'] as bool) {
+            await supabase.from('messages').insert({
+              'receiver_id': response?['account_id'],
+              'date': formatted,
+              'created_at': timestamp,
+              'image': publicUrl,
+              'employee_id': pegawaiId,
+              'employee_name': other.namaPegawai,
+              'late': xResponse['late'] as bool,
+              'late_diff': xResponse['late'] as bool
+                  ? xResponse['late_diff']
+                  : 0,
+              'action_type': 'melakukan absen pulang',
+              'action_time': formattedSecond,
+              'on_office': isOnOffice(latitude, longitude),
+            });
+          }
+
+          ref.read(globalStateProvider.notifier).signOut();
+
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/',
+            (Route<dynamic> route) => false, // hapus semua route lama
+          );
+        }
+      } else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/makeexception',
+          (Route<dynamic> route) => false,
+        );
+      }
     } catch (err) {
       // do something
     }
@@ -172,8 +262,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                     Uri.parse(Env.gStaticMap)
                         .replace(
                           queryParameters: {
-                            'center':
-                                "${selectedValue.split('/')[0]},${selectedValue.split('/')[1]}",
+                            'center': "$latitude,$longitude",
                             'size': '100x200',
                             'zoom': '18',
                             'key': Env.gMapKey,
@@ -206,15 +295,15 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(
-                              selectedValue.split('/')[0],
+                              "$latitude",
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(
-                              selectedValue.split('/')[1],
+                              "$longitude",
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(
-                              getYear(DateTime.now()),
+                              "${getYear(DateTime.now())} ${DateFormat('HH:mm').format(DateTime.now())}",
                               style: TextStyle(color: Colors.white),
                             ),
                           ],
@@ -231,141 +320,279 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
     );
   }
 
+  String setLocation(double latitude, double longitude) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
+
+    for (var locs in locations) {
+      final lat1 = latitude;
+      final lat2 = double.parse(locs['lat']);
+      final lon1 = longitude;
+      final lon2 = double.parse(locs['lon']);
+
+      if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
+        return locs['locationName'];
+      } else {
+        // setState(() {
+        //   latitude = lat1;
+        //   longitude = lon1;
+        // });
+      }
+    }
+
+    return locationName;
+  }
+
   Widget setCamera(
     List<Map<String, dynamic>>? list,
     Other other,
     DEVICEPST pst,
     Map<String, double> coord,
   ) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          DropdownMenu<String>(
-            width: MediaQuery.of(context).size.width - 32,
-            hintText: "Pilih lokasi pulang",
-            dropdownMenuEntries: [
-              DropdownMenuEntry(
-                value: '${pst.lat}/${pst.lon}',
-                label: 'Lokasi yang sama',
-              ),
-              DropdownMenuEntry(
-                value: '${coord['lat']}/${coord['lon']}',
-                label: 'Lokasi lain',
-              ),
-            ],
-            onSelected: (value) async {
-              if (value == '${pst.lat}/${pst.lon}') {
-                final lat1 = pst.lat;
-                final lat2 = coord['lat'];
-                final lon1 = pst.lon;
-                final lon2 = coord['lon'];
-                if (haversineDistance(lat1, lat2, lon1, lon2) > 100) {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true, // supaya bisa atur tinggi
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20),
+    final globalState = ref.read(globalStateProvider);
+    final schedule = globalState.schedule;
+    final workSystemName = schedule.workSystemName;
+
+    return position != null
+        ? FutureBuilder(
+            future: position,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  requestPositionPermission();
+                });
+                return Center(child: CircularProgressIndicator());
+              } else {
+                final response = snapshot.data;
+                final latitude = response?.latitude;
+                final longitude = response?.longitude;
+
+                return Stack(
+                  children: [
+                    Center(
+                      child: ClipOval(
+                        child: SizedBox(
+                          width: 300,
+                          height: 300,
+                          child: CameraPreview(_controller),
+                        ),
                       ),
                     ),
-                    builder: (context) {
-                      return FractionallySizedBox(
-                        heightFactor: 0.5, // setengah layar
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                                size: 60,
-                              ),
-                              const SizedBox(height: 20),
-                              const Text(
-                                'Lokasi tidak tersedia untuk dipilih',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                    Positioned(
+                      bottom: 110,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.all(12),
+                        margin: EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  "$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}",
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Kamu berada terlalu jauh dari lokasi yang dipilih',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black54,
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 18,
+                                  color: Colors.red,
                                 ),
-                              ),
-                            ],
+                                SizedBox(width: 8),
+                                Text(setLocation(latitude!, longitude!)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 20,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        margin: EdgeInsets.all(16), // margin di semua sisi
+                        width: double.infinity, // membuat selebar layar
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[600], // hijau gelap
+                            padding: EdgeInsets.symmetric(
+                              vertical: 16,
+                            ), // tinggi button
+                          ),
+                          onPressed: () {
+                            captureAndUpload(
+                              latitude,
+                              longitude,
+                              other.pegawaiId,
+                            );
+                          },
+                          child: Text(
+                            "Selesai",
+                            style: TextStyle(
+                              color: Colors.white, // warna teks putih
+                              fontSize: 16,
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  );
-                  controller.clear();
-                  selectedValue = "";
-                } else {
-                  controller.text = "Lokasi yang sama";
-                  selectedValue = value.toString();
-                }
-              } else {
-                controller.text = "Lokasi yang lain";
-                selectedValue = value.toString();
+                      ),
+                    ),
+                  ],
+                );
+
+                // return Container(
+                //   margin: EdgeInsets.symmetric(horizontal: 16),
+                //   child: Column(
+                //     children: [
+                //       DropdownMenu<String>(
+                //         width: MediaQuery.of(context).size.width - 32,
+                //         hintText: "Pilih lokasi pulang",
+                //         dropdownMenuEntries: [
+                //           DropdownMenuEntry(
+                //             value: '${pst.lat}/${pst.lon}',
+                //             label: 'Lokasi yang sama',
+                //           ),
+                //           DropdownMenuEntry(
+                //             value: '${coord['lat']}/${coord['lon']}',
+                //             label: 'Lokasi lain',
+                //           ),
+                //         ],
+                //         onSelected: (value) async {
+                //           if (value == '${pst.lat}/${pst.lon}') {
+                //             final lat1 = pst.lat;
+                //             final lon1 = pst.lon;
+                //             if (haversineDistance(
+                //                   lat1,
+                //                   latitude,
+                //                   lon1,
+                //                   longitude,
+                //                 ) >
+                //                 100) {
+                //               showModalBottomSheet(
+                //                 context: context,
+                //                 isScrollControlled:
+                //                     true, // supaya bisa atur tinggi
+                //                 shape: const RoundedRectangleBorder(
+                //                   borderRadius: BorderRadius.vertical(
+                //                     top: Radius.circular(20),
+                //                   ),
+                //                 ),
+                //                 builder: (context) {
+                //                   return FractionallySizedBox(
+                //                     heightFactor: 0.5, // setengah layar
+                //                     child: Padding(
+                //                       padding: const EdgeInsets.all(20),
+                //                       child: Column(
+                //                         mainAxisAlignment:
+                //                             MainAxisAlignment.center,
+                //                         children: [
+                //                           const Icon(
+                //                             Icons.error_outline,
+                //                             color: Colors.red,
+                //                             size: 60,
+                //                           ),
+                //                           const SizedBox(height: 20),
+                //                           const Text(
+                //                             'Lokasi tidak tersedia untuk dipilih',
+                //                             textAlign: TextAlign.center,
+                //                             style: TextStyle(
+                //                               fontSize: 20,
+                //                               fontWeight: FontWeight.bold,
+                //                             ),
+                //                           ),
+                //                           const SizedBox(height: 8),
+                //                           const Text(
+                //                             'Kamu berada terlalu jauh dari lokasi yang dipilih',
+                //                             textAlign: TextAlign.center,
+                //                             style: TextStyle(
+                //                               fontSize: 16,
+                //                               color: Colors.black54,
+                //                             ),
+                //                           ),
+                //                         ],
+                //                       ),
+                //                     ),
+                //                   );
+                //                 },
+                //               );
+                //               controller.clear();
+                //               selectedValue = "";
+                //             } else {
+                //               controller.text = "Lokasi yang sama";
+                //               selectedValue = value.toString();
+                //             }
+                //           } else {
+                //             controller.text = "Lokasi yang lain";
+                //             selectedValue = value.toString();
+                //           }
+                //         },
+                //       ),
+                //       SizedBox(height: 16),
+                //       Stack(
+                //         children: [
+                //           ClipRRect(
+                //             borderRadius: BorderRadius.circular(8),
+                //             child: CameraPreview(_controller),
+                //           ),
+                //           Positioned(
+                //             bottom: 20,
+                //             width: MediaQuery.of(context).size.width - 32,
+                //             child: Padding(
+                //               padding: EdgeInsetsGeometry.all(16),
+                //               child: ElevatedButton.icon(
+                //                 onPressed: () async {
+                //                   captureAndUpload(other.pegawaiId);
+                //                 },
+                //                 icon: const Icon(
+                //                   Icons.login,
+                //                   size: 18,
+                //                   color: Colors.white,
+                //                 ),
+                //                 label: const Text(
+                //                   'Presensi pulang',
+                //                   style: TextStyle(
+                //                     color: Color.fromARGB(255, 158, 133, 133),
+                //                     fontSize: 14,
+                //                     fontWeight: FontWeight.w500,
+                //                   ),
+                //                 ),
+                //                 style: ElevatedButton.styleFrom(
+                //                   backgroundColor: Colors.red, // hijau tosca
+                //                   padding: const EdgeInsets.symmetric(
+                //                     horizontal: 20,
+                //                     vertical: 12,
+                //                   ),
+                //                   shape: RoundedRectangleBorder(
+                //                     borderRadius: BorderRadius.circular(8),
+                //                   ),
+                //                   elevation: 0, // tanpa shadow
+                //                 ),
+                //               ),
+                //             ),
+                //           ),
+                //         ],
+                //       ),
+                //     ],
+                //   ),
+                // );
               }
+              return SizedBox();
             },
-          ),
-          SizedBox(height: 16),
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: CameraPreview(_controller),
-              ),
-              Positioned(
-                bottom: 20,
-                width: MediaQuery.of(context).size.width - 32,
-                child: Padding(
-                  padding: EdgeInsetsGeometry.all(16),
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      captureAndUpload(other.pegawaiId);
-                    },
-                    icon: const Icon(
-                      Icons.login,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'Presensi pulang',
-                      style: TextStyle(
-                        color: Color.fromARGB(255, 158, 133, 133),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red, // hijau tosca
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0, // tanpa shadow
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+          )
+        : SizedBox();
   }
 
   @override

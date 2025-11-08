@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/global_state.dart';
 import '../env/env.dart';
 
@@ -117,7 +118,7 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
 
       try {
         await http.post(url, headers: headers, body: jsonEncode(params));
-        Navigator.pushReplacementNamed(context, '/permission_success');
+        Navigator.pushReplacementNamed(context, '/');
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

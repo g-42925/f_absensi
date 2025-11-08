@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LongPermissionPage extends ConsumerStatefulWidget {
   const LongPermissionPage({super.key});
@@ -37,6 +38,8 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
   void sendRequest(String companyId, String pegawaiId) async {
     final headers = {"Content-type": "application/json"};
 
+    final now = DateTime.now(); // ambil tanggal sekarang
+
     final params = {
       'company_id': companyId,
       'tanggal_request': dateFormat.format(tanggalMulai!),
@@ -48,8 +51,16 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
 
     try {
       await http.post(url, headers: headers, body: jsonEncode(params));
-      Navigator.pushReplacementNamed(context, '/permission_success');
+      Navigator.pushReplacementNamed(context, '/');
     } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("gagal mengajukan izin!"),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/');
+
       print(e);
     }
   }

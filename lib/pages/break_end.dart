@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -30,6 +31,19 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
   final GlobalKey _globalKey = GlobalKey();
   final supabase = Supabase.instance.client;
   bool preview = false;
+  late Future<Position>? position;
+
+  Future<void> requestPositionPermission() async {
+    setState(() {
+      position = null;
+    });
+
+    await Geolocator.requestPermission();
+
+    setState(() {
+      position = Geolocator.getCurrentPosition();
+    });
+  }
 
   double latitude = 0;
   double longitude = 0;
@@ -55,14 +69,13 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     return byteData?.buffer as ByteBuffer;
   }
 
-  void captureAndUpload(String? pegawaiId) async {
-    await _initializeControllerFuture;
-
+  void captureAndUpload(
+    String? pegawaiId,
+    double latitude,
+    double longitude,
+  ) async {
     final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {
-        'latlng': '${latitude},${longitude}',
-        'key': Env.gMapKey,
-      },
+      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
     );
 
     try {
@@ -86,6 +99,8 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
       loc['country'] = addressComponents[6]['long_name'];
 
       setState(() {
+        latitude = latitude;
+        longitude = longitude;
         path = img.path;
         preview = true;
       });
@@ -102,6 +117,9 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         'jam_sistirahat': now,
         'pegawai_id': employeeId,
         'batas': limit,
+        'photo': publicUrl,
+        'latitude': latitude,
+        'longitude': longitude,
       };
 
       try {
@@ -119,45 +137,6 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
       } catch (e) {
         print(e);
       }
-
-      // final params = {
-      //   "is_status": "hhk",
-      //   "jam_masuk": formattedTime,
-      //   "foto_absen_masuk": publicUrl,
-      //   "point_latitude": xLocation['lat'],
-      //   "point_longitude": xLocation['lon'],
-      //   "latitude_masuk": sLoc[0],
-      //   "longitude_masuk": sLoc[1],
-      //   "pegawai_id": pegawaiId,
-      // };
-
-      // final xRequest = await http.post(
-      //   url,
-      //   headers: headers,
-      //   body: jsonEncode(params),
-      // );
-
-      // print(xRequest.body);
-
-      // final xResponse = jsonDecode(xRequest.body);
-
-      // if (!xResponse['success']) {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     SnackBar(
-      //       content: Text(xResponse['message']),
-      //       duration: Duration(seconds: 4),
-      //     ),
-      //   );
-      // } else {
-      //   ref.read(globalStateProvider.notifier).signIn();
-      //   ref.read(globalStateProvider.notifier).setPosition(lt, ln);
-
-      //   Navigator.pushNamedAndRemoveUntil(
-      //     context,
-      //     '/',
-      //     (Route<dynamic> route) => false,
-      //   );
-      // }
     } catch (err) {
       print("error");
       print(err);
@@ -166,6 +145,24 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
 
   String getYear(DateTime information) {
     return DateFormat('dd/MM/yy').format(information);
+  }
+
+  String setLocation(double latitude, double longitude) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
+
+    for (var locs in locations) {
+      final lat1 = latitude;
+      final lat2 = double.parse(locs['lat']);
+      final lon1 = longitude;
+      final lon2 = double.parse(locs['lon']);
+
+      if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
+        return locs['locationName'];
+      }
+    }
+
+    return locationName;
   }
 
   Widget setPreview() {
@@ -229,7 +226,7 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(
-                              getYear(DateTime.now()),
+                              "${getYear(DateTime.now())} ${DateFormat('HH:mm').format(DateTime.now())}",
                               style: TextStyle(color: Colors.white),
                             ),
                           ],
@@ -251,87 +248,108 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     final schedule = globalState.schedule;
     final workSystemName = schedule.workSystemName;
 
-    final entries = (list ?? []).map((l) {
-      return DropdownMenuEntry(
-        value: '${l['lat']}/${l['lon']}',
-        label: '${l['locationName']}',
-      );
-    }).toList();
-
-    entries.add(DropdownMenuEntry(value: '0/0', label: 'pilih lokasi'));
-
-    return Stack(
-      children: [
-        Center(
-          child: ClipOval(
-            child: SizedBox(
-              width: 300,
-              height: 300,
-              child: CameraPreview(_controller),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 110,
-          left: 0,
-          right: 0,
-          child: Container(
-            padding: EdgeInsets.all(12),
-            margin: EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              children: [
-                Row(
+    return position != null
+        ? FutureBuilder(
+            future: position,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  requestPositionPermission();
+                });
+                return Center(child: CircularProgressIndicator());
+              } else {
+                final response = snapshot.data;
+                final latitude = response?.latitude;
+                final longitude = response?.longitude;
+                return Stack(
                   children: [
-                    Icon(Icons.calendar_today, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      "$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}",
+                    Center(
+                      child: ClipOval(
+                        child: SizedBox(
+                          width: 300,
+                          height: 300,
+                          child: CameraPreview(_controller),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 110,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.all(12),
+                        margin: EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  "$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}",
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 18,
+                                  color: Colors.red,
+                                ),
+                                SizedBox(width: 8),
+                                Text(setLocation(latitude!, longitude!)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 20,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        margin: EdgeInsets.all(16), // margin di semua sisi
+                        width: double.infinity, // membuat selebar layar
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[600], // hijau gelap
+                            padding: EdgeInsets.symmetric(
+                              vertical: 16,
+                            ), // tinggi button
+                          ),
+                          onPressed: () {
+                            captureAndUpload(
+                              other.pegawaiId,
+                              latitude,
+                              longitude,
+                            );
+                          },
+                          child: Text(
+                            "Selesai",
+                            style: TextStyle(
+                              color: Colors.white, // warna teks putih
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-                ),
-                SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.location_on, size: 18, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text(locationName),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 20,
-          left: 0,
-          right: 0,
-          child: Container(
-            margin: EdgeInsets.all(16), // margin di semua sisi
-            width: double.infinity, // membuat selebar layar
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600], // hijau gelap
-                padding: EdgeInsets.symmetric(vertical: 16), // tinggi button
-              ),
-              onPressed: () {
-                captureAndUpload(other.pegawaiId);
-              },
-              child: Text(
-                "Selesai",
-                style: TextStyle(
-                  color: Colors.white, // warna teks putih
-                  fontSize: 16,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+                );
+              }
+            },
+          )
+        : SizedBox();
   }
 
   double toRad(double degree) {
@@ -358,36 +376,37 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     super.initState();
     _controller = CameraController(widget.camera, ResolutionPreset.high);
     _initializeControllerFuture = _controller.initialize();
+    position = Geolocator.getCurrentPosition();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(Duration(seconds: 2));
-      final globalState = ref.read(globalStateProvider);
-      final locations = globalState.location.list;
-      final coordinate = await widget.coord;
+    // WidgetsBinding.instance.addPostFrameCallback((_) async {
+    //   await Future.delayed(Duration(seconds: 2));
+    //   final globalState = ref.read(globalStateProvider);
+    //   final locations = globalState.location.list;
+    //   final coordinate = await widget.coord;
 
-      for (var locs in locations) {
-        final lat1 = coordinate['lat'];
-        final lat2 = double.parse(locs['lat']);
-        final lon1 = coordinate['lon'];
-        final lon2 = double.parse(locs['lon']);
+    //   for (var locs in locations) {
+    //     final lat1 = coordinate['lat'];
+    //     final lat2 = double.parse(locs['lat']);
+    //     final lon1 = coordinate['lon'];
+    //     final lon2 = double.parse(locs['lon']);
 
-        if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
-          setState(() {
-            latitude = lat2;
-            longitude = lon2;
-            locationName = locs['locationName'];
-          });
-        } else {
-          setState(() {
-            latitude = lat1 as double;
-            longitude = lon1 as double;
-          });
-        }
-      }
+    //     if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
+    //       setState(() {
+    //         latitude = lat2;
+    //         longitude = lon2;
+    //         locationName = locs['locationName'];
+    //       });
+    //     } else {
+    //       setState(() {
+    //         latitude = lat1 as double;
+    //         longitude = lon1 as double;
+    //       });
+    //     }
+    //   }
 
-      print(latitude);
-      print(longitude);
-    });
+    //   print(latitude);
+    //   print(longitude);
+    // });
   }
 
   @override

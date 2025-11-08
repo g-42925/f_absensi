@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ShortPermissionPage extends ConsumerStatefulWidget {
   const ShortPermissionPage({super.key});
@@ -42,8 +43,7 @@ class _ShortPemissionPageState extends ConsumerState<ShortPermissionPage> {
 
     try {
       await http.post(url, headers: headers, body: jsonEncode(params));
-      Navigator.pushReplacementNamed(context, '/permission_success');
-      print("ok");
+      Navigator.pushReplacementNamed(context, '/');
     } catch (e) {
       print(e);
     }
