@@ -216,11 +216,12 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
         Navigator.pop(context);
       } else {
         ref.read(globalStateProvider.notifier).taskFinish(id);
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/',
-          (Route<dynamic> route) => false,
-        );
+        setState(() {
+          latitude = latitude;
+          longitude = longitude;
+          path = img.path;
+          preview = false;
+        });
       }
     } catch (err) {
       print("error");

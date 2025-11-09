@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:appwrite/appwrite.dart';
+import 'package:appwrite/appwrite.dart' as aw;
 
 import '../env/env.dart';
 import '../providers/global_state.dart';
@@ -32,6 +34,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
   Future<Position>? position;
+
+  final client = Client()
+      .setEndpoint('https://fra.cloud.appwrite.io/v1')
+      .setProject('690ec18e001dfc4c748b');
 
   final controller = TextEditingController();
 
@@ -148,6 +154,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     double longitude,
     String? pegawaiId,
   ) async {
+    final storage = Storage(client);
     final supabase = Supabase.instance.client;
     final currentTime = DateTime.now();
 
@@ -197,6 +204,22 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       await supabase.storage
           .from('storage')
           .uploadBinary(fileName, result.asUint8List());
+
+      // kirim sebagai binary
+      // final file = await storage.createFile(
+      //   permissions: [aw.Permission.read(Role.any())],
+      //   bucketId: '690ec331002a1b163da5',
+      //   fileId: ID.unique(), // biar ID file otomatis
+      //   file: InputFile.fromBytes(
+      //     bytes: result.asUint8List(),
+      //     filename: fileName, // wajib kasih nama file
+      //   ), // binary file dari input
+      // );
+
+      // final publicUrl = storage.getFileView(
+      //   bucketId: '690ec331002a1b163da5',
+      //   fileId: file.$id,
+      // );
 
       final publicUrl = await supabase.storage
           .from('storage')
@@ -273,11 +296,12 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               .read(globalStateProvider.notifier)
               .setPosition(latitude, longitude);
 
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/',
-            (Route<dynamic> route) => false,
-          );
+          setState(() {
+            latitude = latitude;
+            longitude = longitude;
+            path = img.path;
+            preview = false;
+          });
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -217,11 +217,12 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
         Navigator.pop(context);
       } else {
         ref.read(globalStateProvider.notifier).startTask(id);
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/',
-          (Route<dynamic> route) => false,
-        );
+        setState(() {
+          latitude = latitude;
+          longitude = longitude;
+          path = img.path;
+          preview = false;
+        });
       }
     } catch (err) {
       print("error");

@@ -8,7 +8,13 @@ typedef Holiday = ({bool holiday, bool workDay});
 typedef Auth = ({bool loggedIn, String date});
 typedef Status = ({bool signedIn, bool signedOut});
 typedef OverWork = ({bool onOverWork});
-typedef Config = ({bool ffocia, bool ffocoa});
+typedef Config = ({
+  bool ffocia,
+  bool ffocoa,
+  int coLimit,
+  int ciLimit,
+  int tolerance,
+});
 typedef Task = ({List<String> started, List<String> finished});
 
 typedef Company = ({
@@ -27,7 +33,6 @@ typedef Schedule = ({
   String breakFinish,
   String workSystem,
   String workSystemName,
-  String limit,
 });
 
 typedef Location = ({List<Map<String, dynamic>> list});
@@ -79,7 +84,6 @@ final globalStateProvider =
           breakFinish: '',
           workSystem: '',
           workSystemName: '',
-          limit: '',
         ),
         location: (list: []),
         position: (lat: 0, lon: 0),
@@ -96,7 +100,13 @@ final globalStateProvider =
         holiday: (holiday: false, workDay: true),
         breakInfo: (onBreak: false, startFrom: ''),
         overWork: (onOverWork: false),
-        config: (ffocia: false, ffocoa: false),
+        config: (
+          ffocia: false,
+          ffocoa: false,
+          coLimit: 0,
+          ciLimit: 0,
+          tolerance: 0,
+        ),
         task: (started: [], finished: []),
       ));
     });
@@ -277,9 +287,19 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
   }
 
   fFOCIMakeAllowed() {
+    final Status status = (signedIn: state.status.signedIn, signedOut: false);
+
+    final Config config = (
+      ffocia: true,
+      ffocoa: state.config.ffocoa,
+      coLimit: state.config.coLimit,
+      ciLimit: state.config.ciLimit,
+      tolerance: state.config.tolerance,
+    );
+
     state = (
       auth: state.auth,
-      status: (signedIn: false, signedOut: false),
+      status: status,
       company: state.company,
       schedule: state.schedule,
       location: state.location,
@@ -291,15 +311,24 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: state.overWork,
-      config: (ffocia: true, ffocoa: false),
+      config: config,
       task: state.task,
     );
   }
 
   fFOCOMakeAllowed() {
+    final Status status = (signedIn: state.status.signedIn, signedOut: false);
+    final Config config = (
+      ffocia: state.config.ffocia,
+      ffocoa: true,
+      coLimit: state.config.coLimit,
+      ciLimit: state.config.ciLimit,
+      tolerance: state.config.tolerance,
+    );
+
     state = (
       auth: state.auth,
-      status: (signedIn: true, signedOut: false),
+      status: status,
       company: state.company,
       schedule: state.schedule,
       location: state.location,
@@ -311,7 +340,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: state.overWork,
-      config: (ffocia: state.config.ffocia, ffocoa: true),
+      config: config,
       task: state.task,
     );
   }
@@ -449,7 +478,6 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         breakFinish: scheduleJson['breakFinish'] as String,
         workSystem: scheduleJson['workSystem'] as String,
         workSystemName: scheduleJson['workSystemName'] as String,
-        limit: scheduleJson['limit'] as String,
       ),
       location: (
         list: locationList.map((e) => Map<String, dynamic>.from(e)).toList(),
@@ -487,8 +515,14 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       config: (
         ffocia: configJson['ffocia'] as bool,
         ffocoa: configJson['ffocoa'] as bool,
+        coLimit: configJson['coLimit'] as int,
+        ciLimit: configJson['ciLimit'] as int,
+        tolerance: configJson['tolerance'] as int,
       ),
-      task: (started: taskJson['started'], finished: taskJson['finished']),
+      task: (
+        started: List<String>.from(taskJson['started'] ?? []),
+        finished: List<String>.from(taskJson['finished'] ?? []),
+      ),
     );
   }
 
@@ -515,7 +549,6 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         'breakFinish': state.schedule.breakFinish,
         'workSystem': state.schedule.workSystem,
         'workSystemName': state.schedule.workSystemName,
-        'limit': state.schedule.limit,
       },
       'location': {'list': state.location.list},
       'position': {'lat': state.position.lat, 'lon': state.position.lon},
@@ -539,7 +572,13 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         'startFrom': state.breakInfo.startFrom,
       },
       'overWork': {'onOverWork': state.overWork.onOverWork},
-      'config': {'ffocia': state.config.ffocia, 'ffocoa': state.config.ffocoa},
+      'config': {
+        'ffocia': state.config.ffocia,
+        'ffocoa': state.config.ffocoa,
+        'coLimit': state.config.coLimit,
+        'ciLimit': state.config.ciLimit,
+        'tolerance': state.config.tolerance,
+      },
       'task': {'started': state.task.started, 'finished': state.task.finished},
     };
   }

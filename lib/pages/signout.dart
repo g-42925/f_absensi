@@ -224,11 +224,12 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
           ref.read(globalStateProvider.notifier).signOut();
 
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/',
-            (Route<dynamic> route) => false, // hapus semua route lama
-          );
+          setState(() {
+            latitude = latitude;
+            longitude = longitude;
+            path = img.path;
+            preview = false;
+          });
         }
       } else {
         Navigator.pushNamedAndRemoveUntil(

@@ -32,32 +32,32 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     String date,
     String id,
   ) async {
-    final authDate = DateTime.parse(date);
-    final schedule = ref.read(globalStateProvider).schedule;
+    // final authDate = DateTime.parse(date);
+    // final schedule = ref.read(globalStateProvider).schedule;
 
-    final parts = schedule.nextStart.split(':');
+    // final parts = schedule.nextStart.split(':');
 
-    final expired = DateTime(
-      authDate.year,
-      authDate.month,
-      authDate.day,
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-      int.parse(parts[2]),
-    ).add(Duration(days: 1, hours: -1));
+    // final expired = DateTime(
+    //   authDate.year,
+    //   authDate.month,
+    //   authDate.day,
+    //   int.parse(parts[0]),
+    //   int.parse(parts[1]),
+    //   int.parse(parts[2]),
+    // ).add(Duration(days: 1, hours: -1));
 
-    if (loggedIn) {
-      if (DateTime.now().isAfter(expired)) {
-        try {
-          await supabase.from('sessions').delete().eq('employee_id', id);
-          Future.delayed(const Duration(seconds: 3), () {
-            Navigator.pushReplacementNamed(context, '/login');
-          });
-        } catch (e) {
-          Navigator.pushReplacementNamed(context, '/failed_sync');
-        }
-      }
-    }
+    // if (loggedIn) {
+    //   if (DateTime.now().isAfter(expired)) {
+    //     try {
+    //       await supabase.from('sessions').delete().eq('employee_id', id);
+    //       Future.delayed(const Duration(seconds: 3), () {
+    //         Navigator.pushReplacementNamed(context, '/login');
+    //       });
+    //     } catch (e) {
+    //       Navigator.pushReplacementNamed(context, '/failed_sync');
+    //     }
+    //   }
+    // }
   }
 
   @override
@@ -97,254 +97,106 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     ).subtract(Duration(hours: 1));
   }
 
-  ElevatedButton? createButton(
-    Status status,
-    Break breakInfo,
-    bool sOTSD,
-    Schedule schedule,
-    bool onOverWork,
-  ) {
-    final globalState = ref.read(globalStateProvider);
-    final holiday = globalState.holiday;
-    final schedule = globalState.schedule;
-    DateTime targetTime = DateFormat("HH:mm").parse(schedule.start);
-    DateTime targetTimeX = DateFormat(
-      "HH:mm",
-    ).parse(schedule.finish).add(Duration(hours: 1));
+  // ElevatedButton? createButton(
+  //   Status status,
+  //   Break breakInfo,
+  //   bool sOTSD,
+  //   Schedule schedule,
+  //   bool onOverWork,
+  // ) {
+  //   final globalState = ref.read(globalStateProvider);
+  //   final holiday = globalState.holiday;
+  //   final schedule = globalState.schedule;
+  //   DateTime targetTimeX = DateFormat(
+  //     "HH:mm",
+  //   ).parse(schedule.finish).add(Duration(hours: 1));
 
-    DateTime restriction = targetTimeX.add(
-      Duration(minutes: int.parse(schedule.limit)),
-    );
+  //   DateTime restriction = targetTimeX.add(Duration(minutes: 0));
 
-    if (!status.signedIn && !status.signedOut) {
-      return ElevatedButton.icon(
-        onPressed: () {
-          if (DateTime.now().isAfter(makeTime(targetTime))) {
-            if (holiday.holiday || !holiday.workDay) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('this feature is not accessible for today'),
-                  duration: Duration(seconds: 2), // lama munculnya
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            } else {
-              Navigator.pushNamed(context, '/signin');
-            }
-          } else {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true, // supaya bisa atur tinggi
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              builder: (context) {
-                return FractionallySizedBox(
-                  heightFactor: 0.5,
-                  widthFactor: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 60,
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Belum bisa masuk sekarang.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Mohon tunggu sampai waktunya tiba',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          }
-        },
-        icon: const Icon(Icons.login, size: 18, color: Colors.white),
-        label: const Text(
-          'Presensi Masuk',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green, // hijau tosca
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          elevation: 0, // tanpa shadow
-        ),
-      );
-    }
+  //   if (!status.signedIn && !status.signedOut) {}
 
-    if (status.signedIn && breakInfo.onBreak) {
-      return ElevatedButton.icon(
-        onPressed: () {
-          Navigator.pushNamed(context, '/breakend');
-        },
-        icon: Icon(
-          Icons.local_cafe,
-          color: Colors.white, // warna ikon putih
-        ),
-        label: const Text(
-          'Selesai Istirahat',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green, // hijau tosca
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          elevation: 0, // tanpa shadow
-        ),
-      );
-    }
+  //   if (status.signedIn && breakInfo.onBreak) {
+  //     return ElevatedButton.icon(
+  //       onPressed: () {
+  //         Navigator.pushNamed(context, '/breakend');
+  //       },
+  //       icon: Icon(
+  //         Icons.local_cafe,
+  //         color: Colors.white, // warna ikon putih
+  //       ),
+  //       label: const Text(
+  //         'Selesai Istirahat',
+  //         style: TextStyle(
+  //           color: Colors.white,
+  //           fontSize: 14,
+  //           fontWeight: FontWeight.w500,
+  //         ),
+  //       ),
+  //       style: ElevatedButton.styleFrom(
+  //         backgroundColor: Colors.green, // hijau tosca
+  //         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(30),
+  //         ),
+  //         elevation: 0, // tanpa shadow
+  //       ),
+  //     );
+  //   }
 
-    if (status.signedIn && !status.signedOut) {
-      return ElevatedButton.icon(
-        onPressed: () {
-          if (DateTime.now().isAfter(makeTime(targetTimeX)) &&
-              DateTime.now().isBefore(makeTime(restriction))) {
-            Navigator.pushNamed(context, '/signout');
-          } else {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true, // supaya bisa atur tinggi
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              builder: (context) {
-                return FractionallySizedBox(
-                  widthFactor: 1,
-                  heightFactor: 0.5, // setengah layar
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 60,
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Belum bisa pulang atau sudah melewati batas waktu',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Mohon tunggu sampai waktunya tiba',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          }
-        },
-        icon: const Icon(Icons.login, size: 18, color: Colors.white),
-        label: const Text(
-          'Presensi Pulang',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green, // hijau tosca
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          elevation: 0, // tanpa shadow
-        ),
-      );
-    }
+  //   if (status.signedIn && !status.signedOut) {}
 
-    if (status.signedIn && status.signedOut && !onOverWork) {
-      return ElevatedButton.icon(
-        onPressed: () {},
-        label: const Text(
-          'Selamat beristirahat',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green, // hijau tosca
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          elevation: 0, // tanpa shadow
-        ),
-      );
-    }
+  //   if (status.signedIn && status.signedOut && !onOverWork) {
+  //     return ElevatedButton.icon(
+  //       onPressed: () {},
+  //       label: const Text(
+  //         'Selamat beristirahat',
+  //         style: TextStyle(
+  //           color: Colors.white,
+  //           fontSize: 14,
+  //           fontWeight: FontWeight.w500,
+  //         ),
+  //       ),
+  //       style: ElevatedButton.styleFrom(
+  //         backgroundColor: Colors.green, // hijau tosca
+  //         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(30),
+  //         ),
+  //         elevation: 0, // tanpa shadow
+  //       ),
+  //     );
+  //   }
 
-    if (status.signedIn && status.signedOut && onOverWork) {
-      return ElevatedButton.icon(
-        onPressed: () {
-          Navigator.pushNamed(context, '/overwork_end');
-        },
-        icon: Icon(
-          Icons.access_time,
-          color: Colors.white, // warna ikon putih
-        ),
-        label: const Text(
-          'Selesaikan Lembur',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green, // hijau tosca
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          elevation: 0, // tanpa shadow
-        ),
-      );
-    }
+  //   if (status.signedIn && status.signedOut && onOverWork) {
+  //     return ElevatedButton.icon(
+  //       onPressed: () {
+  //         Navigator.pushNamed(context, '/overwork_end');
+  //       },
+  //       icon: Icon(
+  //         Icons.access_time,
+  //         color: Colors.white, // warna ikon putih
+  //       ),
+  //       label: const Text(
+  //         'Selesaikan Lembur',
+  //         style: TextStyle(
+  //           color: Colors.white,
+  //           fontSize: 14,
+  //           fontWeight: FontWeight.w500,
+  //         ),
+  //       ),
+  //       style: ElevatedButton.styleFrom(
+  //         backgroundColor: Colors.green, // hijau tosca
+  //         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(30),
+  //         ),
+  //         elevation: 0, // tanpa shadow
+  //       ),
+  //     );
+  //   }
 
-    return null;
-  }
+  //   return null;
+  // }
 
   Widget SplashScreen(loggedIn) {
     Future.delayed(const Duration(seconds: 8), () {
@@ -377,6 +229,20 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     }
   }
 
+  DateTime makeLimit(List<String> start, int l) {
+    final now = DateTime.now();
+
+    final limit = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.parse(start[0]),
+      int.parse(start[1]),
+    ).add(Duration(minutes: l));
+
+    return limit;
+  }
+
   @override
   Widget build(BuildContext context) {
     final globalState = ref.read(globalStateProvider);
@@ -386,10 +252,12 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     final status = globalState.status;
     final breakInfo = globalState.breakInfo;
     final auth = globalState.auth;
+    final config = globalState.config;
     final breakStartTime = auth.loggedIn ? schedule.breakStart : "00:00";
     final breakStart = DateFormat("HH:mm").parse(breakStartTime);
     final onOverWork = globalState.overWork.onOverWork;
     final pp = globalState.other.fotoPegawai;
+    DateTime targetTime = DateFormat("HH:mm").parse("00:00");
 
     final String message =
         "maka sesungguhnya bersama kesulitan itu ada kemudahan";
@@ -424,6 +292,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
               ],
             ),
             body: Container(
+              height: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFFF5DEB3),
                 borderRadius: BorderRadius.circular(10),
@@ -545,6 +414,66 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
                           IconLabel(
+                            icon: Icons.login,
+                            label: 'Masuk',
+                            onPressed: () {
+                              if (!status.signedIn) {
+                                if (DateTime.now().isBefore(
+                                  makeLimit(
+                                    schedule.start.split(':'),
+                                    config.tolerance + config.ciLimit,
+                                  ),
+                                )) {
+                                  if (DateTime.now().isAfter(
+                                    makeLimit(
+                                      schedule.start.split(':'),
+                                      0,
+                                    ).subtract(Duration(minutes: 60)),
+                                  )) {
+                                    Navigator.pushNamed(context, '/signin');
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          "Tunggu beberapa saat lagi",
+                                        ),
+                                        duration: Duration(
+                                          seconds: 2,
+                                        ), // lama tampil
+                                        backgroundColor:
+                                            Colors.blue, // warna background
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Kamu sudah melewati batas waktu absen masuk",
+                                      ),
+                                      duration: Duration(
+                                        seconds: 2,
+                                      ), // lama tampil
+                                      backgroundColor:
+                                          Colors.blue, // warna background
+                                    ),
+                                  );
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Kamu sudah absen"),
+                                    duration: Duration(
+                                      seconds: 2,
+                                    ), // lama tampil
+                                    backgroundColor:
+                                        Colors.blue, // warna background
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          IconLabel(
                             icon: Icons.local_cafe,
                             label: 'Istirahat',
                             onPressed: () {
@@ -629,6 +558,36 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                               Navigator.pushNamed(context, '/task');
                             },
                           ),
+                          IconLabel(
+                            icon: Icons.logout,
+                            label: 'Keluar',
+                            onPressed: () {
+                              if (DateTime.now().isBefore(
+                                    makeLimit(
+                                      schedule.finish.split(':'),
+                                      config.coLimit,
+                                    ),
+                                  ) &&
+                                  DateTime.now().isAfter(
+                                    makeLimit(schedule.finish.split(':'), 0),
+                                  )) {
+                                Navigator.pushNamed(context, '/signout');
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Kamu sudah melewati batas waktu untuk absen pulang",
+                                    ),
+                                    duration: Duration(
+                                      seconds: 2,
+                                    ), // lama tampil
+                                    backgroundColor:
+                                        Colors.blue, // warna background
+                                  ),
+                                );
+                              }
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 0),
@@ -673,12 +632,35 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                       SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
-                        child: createButton(
-                          status,
-                          breakInfo,
-                          iSOTSD(auth.date),
-                          schedule,
-                          onOverWork,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            ref.read(globalStateProvider.notifier).logout();
+                            Navigator.pushReplacementNamed(context, '/login');
+                          },
+                          icon: const Icon(
+                            Icons.logout,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            'Keluar',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green, // hijau tosca
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 0, // tanpa shadow
+                          ),
                         ),
                       ),
                     ],

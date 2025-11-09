@@ -49,6 +49,7 @@ dependencies:
   location: ^8.0.1
   image_picker: ^1.2.0
   timeago: ^3.6.0
+  appwrite: ^20.3.0
   
 
 dev_dependencies:

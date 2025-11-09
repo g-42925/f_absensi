@@ -47,10 +47,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         body: jsonEncode(credential),
       );
 
-      print(response);
-
-      print(response.body);
-
       // if (response.statusCode == 200) {
       final responseBody = jsonDecode(response.body);
 
@@ -98,7 +94,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         breakFinish: breakEnd,
         workSystem: workSystem,
         workSystemName: workSystemName,
-        limit: '60',
       );
 
       final Iterable<Map<String, dynamic>> location =
@@ -137,6 +132,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       final ffocia = responseBody['result']['ffocia'] == 1 ? true : false;
       final ffocoa = responseBody['result']['ffocoa'] == 1 ? true : false;
+      final coLimit = int.parse(responseBody['result']['co_limit']);
+      final ciLimit = int.parse(responseBody['result']['ci_limit']);
+      final tolerance = int.parse(responseBody['result']['tolerance']);
+
+      final Config config = (
+        ffocia: ffocia,
+        ffocoa: ffocoa,
+        coLimit: coLimit,
+        ciLimit: ciLimit,
+        tolerance: tolerance,
+      );
 
       ref.read(globalStateProvider.notifier).login((
         auth: auth,
@@ -152,7 +158,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         holiday: holiday,
         breakInfo: (onBreak: false, startFrom: ''),
         overWork: overWork,
-        config: (ffocia: ffocia, ffocoa: ffocoa),
+        config: config,
         task: (started: [], finished: []),
       ));
 
