@@ -1,4 +1,4 @@
-package com.example.f_absensi
+package com.leryn.f_absensi
 
 import io.flutter.embedding.android.FlutterActivity
 

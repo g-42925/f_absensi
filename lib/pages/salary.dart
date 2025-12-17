@@ -108,12 +108,8 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
     DateTime tglMulai,
     DateTime tglSelesai,
   ) async {
-    final now = DateTime.now();
     final globalState = ref.read(globalStateProvider);
     final empId = globalState.other.pegawaiId;
-    final salaryDate = globalState.company.salaryDate;
-    final date = DateTime(now.year, now.month, salaryDate);
-    final sDate = DateFormat('yyyy-MM-dd').format(date);
     final tglX = DateFormat('yyyy-MM-dd').format(tglMulai);
     final tglY = DateFormat('yyyy-MM-dd').format(tglSelesai);
 
@@ -125,7 +121,11 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
       Navigator.pushNamed(
         context,
         '/salary_slip',
-        arguments: {'result': jsonDecode(test.body)},
+        arguments: {
+          'result': jsonDecode(test.body),
+          'tglX': '${tglX}',
+          'tglY': '${tglY}',
+        },
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -245,16 +245,14 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
               GestureDetector(
                 onTap: () => _selectDate(context, true),
                 child: AbsorbPointer(
-                  child: Expanded(
-                    child: GestureDetector(
-                      onTap: () => pilihTanggal(context, true),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: "Mulai dari",
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(formatTanggal(tanggalMulai)),
+                  child: GestureDetector(
+                    onTap: () => pilihTanggal(context, true),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "Mulai dari",
+                        border: OutlineInputBorder(),
                       ),
+                      child: Text(formatTanggal(tanggalMulai)),
                     ),
                   ),
                 ),
@@ -263,16 +261,14 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
               GestureDetector(
                 onTap: () => _selectDate2(context, true),
                 child: AbsorbPointer(
-                  child: Expanded(
-                    child: GestureDetector(
-                      onTap: () => pilihTanggal(context, true),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: "Sampai",
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(formatTanggal(tanggalSelesai)),
+                  child: GestureDetector(
+                    onTap: () => pilihTanggal(context, true),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "Sampai",
+                        border: OutlineInputBorder(),
                       ),
+                      child: Text(formatTanggal(tanggalSelesai)),
                     ),
                   ),
                 ),
@@ -290,206 +286,12 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
                 onPressed: () {
                   checkCurrentSalary(tanggalMulai!, tanggalSelesai!);
                 },
-                child: Text('Tombol Hijau'),
+                child: Text('Periksa'),
               ),
             ],
           ),
         ),
       ),
     );
-
-    // @override
-    // Widget build(BuildContext context) {
-    //   final globalState = ref.read(globalStateProvider);
-    //   final other = globalState.other;
-    //   final company = globalState.company;
-
-    //   Widget buildInfoRow(String label, dynamic value) {
-    //     return Padding(
-    //       padding: const EdgeInsets.symmetric(vertical: 2),
-    //       child: Row(
-    //         children: [
-    //           SizedBox(width: 100, child: Text("$label :")),
-    //           Expanded(child: Text(value)),
-    //         ],
-    //       ),
-    //     );
-    //   }
-
-    // return Scaffold(
-    //   appBar: AppBar(title: const Text("Slip Gaji"), centerTitle: true),
-    //   body: salary != null
-    //       ? FutureBuilder(
-    //           future: salary,
-    //           builder: (context, snapshot) {
-    //             if (snapshot.connectionState == ConnectionState.waiting) {
-    //               return Center(child: CircularProgressIndicator());
-    //             }
-    //             if (snapshot.hasError) {
-    //               return Center(child: Text("something went wrong"));
-    //             } else {
-    //               final response = snapshot.data!;
-    //               final data = jsonDecode(response.body);
-    //               return Padding(
-    //                 padding: EdgeInsets.all(16.0),
-    //                 child: SingleChildScrollView(
-    //                   child: Column(
-    //                     crossAxisAlignment: CrossAxisAlignment.start,
-    //                     children: [
-    //                       Center(
-    //                         child: Column(
-    //                           children: [
-    //                             Text(
-    //                               company.name,
-    //                               style: TextStyle(
-    //                                 fontSize: 18,
-    //                                 fontWeight: FontWeight.bold,
-    //                               ),
-    //                             ),
-    //                             SizedBox(height: 4),
-    //                             Text(company.address),
-    //                             Divider(thickness: 1),
-    //                           ],
-    //                         ),
-    //                       ),
-    //                       const SizedBox(height: 8),
-    //                       Center(
-    //                         child: Text(
-    //                           "SLIP GAJI KARYAWAN",
-    //                           style: TextStyle(
-    //                             fontSize: 16,
-    //                             fontWeight: FontWeight.bold,
-    //                           ),
-    //                         ),
-    //                       ),
-    //                       Center(child: Text("Periode: $start - $end")),
-    //                       const SizedBox(height: 16),
-
-    //                       // Info Karyawan
-    //                       buildInfoRow("Nama", other.namaPegawai),
-    //                       buildInfoRow("NIK", other.pegawaiId),
-    //                       buildInfoRow("Jabatan", other.position),
-    //                       buildInfoRow("Status", other.status),
-
-    //                       const SizedBox(height: 16),
-
-    //                       Row(
-    //                         crossAxisAlignment: CrossAxisAlignment.start,
-    //                         children: [
-    //                           // Penghasilan
-    //                           Expanded(
-    //                             child: Column(
-    //                               crossAxisAlignment: CrossAxisAlignment.start,
-    //                               children: [
-    //                                 Text(
-    //                                   "PENGHASILAN",
-    //                                   style: TextStyle(
-    //                                     fontWeight: FontWeight.bold,
-    //                                   ),
-    //                                 ),
-    //                                 SizedBox(height: 4),
-    //                                 InfoRow(
-    //                                   label: "Gaji Pokok",
-    //                                   value: formatAngka.format(data['salary']),
-    //                                 ),
-    //                                 ...makeAllowanceList(
-    //                                   List<Map<String, dynamic>>.from(
-    //                                     data['allowance'].map((e) {
-    //                                       return {
-    //                                         'name': e['name'],
-    //                                         'value': formatAngka.format(
-    //                                           e['value'],
-    //                                         ),
-    //                                       };
-    //                                     }),
-    //                                   ),
-    //                                 ),
-    //                                 Divider(),
-    //                                 InfoRow(
-    //                                   label: "TOTAL (A)",
-    //                                   value: formatAngka.format(
-    //                                     data['totalIncome'],
-    //                                   ),
-    //                                   isBold: true,
-    //                                 ),
-    //                               ],
-    //                             ),
-    //                           ),
-    //                           const SizedBox(width: 16),
-    //                           // Potongan
-    //                         ],
-    //                       ),
-    //                       const SizedBox(height: 16),
-    //                       Row(
-    //                         crossAxisAlignment: CrossAxisAlignment.start,
-    //                         children: [
-    //                           // Penghasilan
-    //                           Expanded(
-    //                             child: Column(
-    //                               crossAxisAlignment: CrossAxisAlignment.start,
-    //                               children: [
-    //                                 Text(
-    //                                   "POTONGAN",
-    //                                   style: TextStyle(
-    //                                     fontWeight: FontWeight.bold,
-    //                                   ),
-    //                                 ),
-    //                                 SizedBox(height: 4),
-    //                                 ...makeBenefitAndPenaltyList(
-    //                                   List<Map<String, dynamic>>.from(
-    //                                     data['benefit'].map((e) {
-    //                                       return {
-    //                                         'name': e['name'],
-    //                                         'value': formatAngka.format(
-    //                                           e['value'],
-    //                                         ),
-    //                                       };
-    //                                     }),
-    //                                   ),
-    //                                 ),
-    //                                 ...makeBenefitAndPenaltyList(
-    //                                   List<Map<String, dynamic>>.from(
-    //                                     data['penalty'].map((e) {
-    //                                       return {
-    //                                         'name': e['name'],
-    //                                         'value': formatAngka.format(
-    //                                           e['value'],
-    //                                         ),
-    //                                       };
-    //                                     }),
-    //                                   ),
-    //                                 ),
-    //                                 Divider(),
-    //                                 InfoRow(
-    //                                   label: "TOTAL (B)",
-    //                                   value: formatAngka.format(
-    //                                     data['totalBenefit'],
-    //                                   ),
-    //                                   isBold: true,
-    //                                 ),
-    //                               ],
-    //                             ),
-    //                           ),
-    //                           const SizedBox(width: 16),
-    //                           // Potongan
-    //                         ],
-    //                       ),
-
-    //                       const SizedBox(height: 16),
-
-    //                       // Penerimaan bersih
-    //                       Text(
-    //                         "PENERIMAAN BERSIH (A-B)   = Rp ${formatAngka.format(data['thp'])}",
-    //                         style: TextStyle(fontWeight: FontWeight.bold),
-    //                       ),
-    //                     ],
-    //                   ),
-    //                 ),
-    //               );
-    //             }
-    //           },
-    //         )
-    //       : SizedBox(),
-    // );
   }
 }

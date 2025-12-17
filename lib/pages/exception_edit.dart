@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ExceptionEditPage extends ConsumerStatefulWidget {
@@ -23,12 +24,15 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
   String? selectedValue;
   final ImagePicker _picker = ImagePicker();
 
+  bool _isInitialized = false;
+
   XFile? _image;
 
   final List<Map<String, String>> typeList = [
-    {'id': '68cf640082e8c', 'value': 'Terlambat'},
-    {'id': '68cf640082e8x', 'value': 'Di luar kantor'},
-    {'id': '8474832hd8322', 'value': 'Belum kembali ke kantor'},
+    {'id': '68cf640082e8x', 'value': 'Absen masuk'},
+    {'id': '68cf64008yyy', 'value': 'Absen pulang'},
+    {'id': '8474832hd83xx', 'value': 'Lupa absen'}
+    
   ];
 
   Future<void> _pickDate(BuildContext context) async {
@@ -45,59 +49,128 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
     }
   }
 
-  void _submitForm(String pegawaiId) async {
-    final url = Uri.parse("${Env.api}/api/mobile/makeexception");
+  Future<void> _deleteForm(String id) async {
+    final url = Uri.parse("${Env.api}/api/mobile/exceptionDelete/$id");
+    final headers = {"Content-type": "application/json"};
+
+    try {
+      final exc = await http.get(url, headers: headers);
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("gagal menghapus pengecualian!"),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } finally {}
+  }
+
+  void _submitForm(String pegawaiId, Map<String, dynamic> args) async {
+    final url = Uri.parse("${Env.api}/api/mobile/exceptionEdit");
 
     final headers = {"Content-type": "application/json"};
 
-    if (_formKey.currentState!.validate() && _selectedDate != null) {
-      final file = File(_image!.path);
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
-      final supabase = Supabase.instance.client;
+    final date = _selectedDate != null
+        ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
+        : args['date'];
+    final type = selectedValue ?? args['type'];
 
-      await supabase.storage.from('storage').upload(fileName, file);
+    if ((_formKey.currentState!.validate() && _selectedDate != null) ||
+        args != null) {
+      if (_image != null) {
+        final file = File(_image!.path);
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
+        final supabase = Supabase.instance.client;
 
-      final uploaded = supabase.storage.from('storage').getPublicUrl(fileName);
+        await supabase.storage.from('storage').upload(fileName, file);
 
-      final exceptionData = {
-        "date": _selectedDate!.toIso8601String().split("T")[0],
-        "reason": _reasonController.text,
-        "employee_id": pegawaiId,
-        "type": selectedValue,
-        "image": uploaded,
-      };
+        final excType = selectedValue ?? args['type'];
 
-      try {
-        final exc = await http.post(
-          url,
-          headers: headers,
-          body: jsonEncode(exceptionData),
-        );
+        final uploaded = supabase.storage
+            .from('storage')
+            .getPublicUrl(fileName);
 
-        if (jsonDecode(exc.body)['success']) {
-          Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-        } else {
+        final exceptionData = {
+          "date": date,
+          "reason": _reasonController.text,
+          "employee_id": pegawaiId,
+          "type": excType,
+          "image": uploaded,
+          "id": args['id'],
+        };
+        try {
+          final exc = await http.post(
+            url,
+            headers: headers,
+            body: jsonEncode(exceptionData),
+          );
+
+          if (jsonDecode(exc.body)['success']) {
+            Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("coba beberapa saat lagi"),
+                duration: Duration(seconds: 2),
+              ),
+            );
+
+            Navigator.pop(context);
+          }
+        } catch (e) {
+          print(e);
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("coba beberapa saat lagi"),
+              content: Text("gagal mengajukan pengecualian!"),
               duration: Duration(seconds: 2),
             ),
           );
 
           Navigator.pop(context);
         }
-      } catch (e) {
-        print(e);
+      } else {
+        final excType = selectedValue ?? args['type'];
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("gagal mengajukan pengecualian!"),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        final exceptionData = {
+          "date": date,
+          "reason": _reasonController.text,
+          "employee_id": pegawaiId,
+          "type": excType,
+          "image": args['image'],
+          "id": args["id"],
+        };
+        try {
+          final exc = await http.post(
+            url,
+            headers: headers,
+            body: jsonEncode(exceptionData),
+          );
 
-        Navigator.pop(context);
+          if (jsonDecode(exc.body)['success']) {
+            Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("coba beberapa saat lagi"),
+                duration: Duration(seconds: 2),
+              ),
+            );
+
+            Navigator.pop(context);
+          }
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("gagal mengajukan pengecualian!"),
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          Navigator.pop(context);
+        }
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,16 +189,34 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      _reasonController.text = args['reason'] ?? '';
+      _isInitialized = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;
 
+    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
-      appBar: AppBar(title: Text("Ajukan Pengecualian")),
+      appBar: AppBar(title: Text("Edit Pengecualian")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -176,7 +267,7 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
                   border: Border.all(color: Colors.grey.shade400),
                 ),
                 child: DropdownButton<String>(
-                  value: selectedValue,
+                  value: selectedValue ?? args['type'],
                   hint: const Text('Pilih jenis pengecualiann'),
                   isExpanded: true, // biar lebar mengikuti parent
                   underline: const SizedBox(), // hilangkan garis bawaan
@@ -217,27 +308,43 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
                   ],
                 ),
               ),
-              SizedBox(height: 24),
               // Tombol Submit
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   icon: Icon(Icons.send),
-                  label: Text("Kirim Pengajuan"),
-                  onPressed: () => {_submitForm(other.pegawaiId)},
+                  label: Text("Edit"),
+                  onPressed: () => {_submitForm(other.pegawaiId, args)},
+                ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  child: Text("Hapus"),
+                  onPressed: () => {_deleteForm(args['id'])},
                 ),
               ),
               SizedBox(height: 24),
+              if ((args['image'] != null && _image == null) &&
+                  !isKeyboardVisible)
+                Center(
+                  child: Image.network(
+                    args['image'],
+                    width: double.infinity,
+                    height: 250,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               if (_image != null && !isKeyboardVisible)
                 Center(
                   child: Image.file(
                     File(_image!.path),
-                    width: 250,
+                    width: double.infinity,
                     height: 250,
                     fit: BoxFit.cover,
                   ),
                 )
-              else if (!isKeyboardVisible)
+              else if (!isKeyboardVisible && args['image'] == null)
                 const Text('Silahkan tambahkan bukti pengajuan'),
             ],
           ),

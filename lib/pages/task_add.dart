@@ -51,6 +51,8 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
           body: jsonEncode(exceptionData),
         );
 
+        print(exc.body);
+
         if (jsonDecode(exc.body)['success']) {
           Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
         } else {

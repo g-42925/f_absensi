@@ -11,19 +11,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http_parser/http_parser.dart'; // <-- MediaType
 
-class ExceptionAddPage extends ConsumerStatefulWidget {
-  const ExceptionAddPage({super.key});
+class HalfLeavePage extends ConsumerStatefulWidget {
+  const HalfLeavePage({super.key});
 
   @override
-  ConsumerState<ExceptionAddPage> createState() => _ExceptionAddPageState();
+  ConsumerState<HalfLeavePage> createState() => _HalfLeavePageState();
 }
 
-class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
+class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _reasonController = TextEditingController();
   DateTime? _selectedDate;
   String? selectedValue;
-  String? _selectedValue;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -32,9 +31,8 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
   bool clicked = false;
 
   final List<Map<String, String>> typeList = [
-    {'id': '68cf640082e8x', 'value': 'Absen masuk'},
-    {'id': '8474832hd8322', 'value': 'Absen pulang'},
-    {'id': '8474832hd83xx', 'value': 'Lupa absen'}
+    {'id': '68cf640082xxx', 'value': 'Cuti setengah hari'},
+    {'id': '68cf64008yyy', 'value': 'Cuti pulang'},
   ];
 
   final List<Map<String, String>> isCshOption = [
@@ -56,7 +54,7 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
     }
   }
 
-  void _submitForm(String pegawaiId) async {
+  void _submitForm(String pegawaiId, int quota) async {
     final url = Uri.parse("${Env.api}/api/mobile/makeexception");
 
     final headers = {"Content-type": "application/json"};
@@ -70,12 +68,12 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
       final identifier = "$selectedValue-$fDate";
       final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
 
-      if (!exceptionList.list.contains(identifier)) {
+      if (!exceptionList.list.contains(identifier)){
         try {
           setState(() {
             clicked = true;
           });
-
+          
           final bytes = await file.readAsBytes();
 
           final compressed = await FlutterImageCompress.compressWithList(
@@ -105,25 +103,13 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
 
           final uploadResponse = responseBody;
 
-
-
-          // final supabase = Supabase.instance.client;
-
-          // await supabase.storage.from('storage').upload(fileName, file);
-
-          // final uploaded = supabase.storage
-          //     .from('storage')
-          //     .getPublicUrl(fileName);
-
-          final isCsh = _selectedValue == "Yes" ? true : false;
-
           final exceptionData = {
             "date": _selectedDate!.toIso8601String().split("T")[0],
             "reason": _reasonController.text,
             "employee_id": pegawaiId,
             "type": selectedValue,
             "image": uploadResponse,
-            "isCsh": isCsh,
+            "isCsh": true,
           };
 
           final exc = await http.post(
@@ -146,19 +132,22 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
 
             Navigator.pop(context);
           }
-        } catch (e) {
+        } 
+        catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text("gagal mengajukan pengecualian!"),
               duration: Duration(seconds: 2),
             ),
           );
-        } finally {
+        } 
+        finally {
           setState(() {
             clicked = false;
           });
         }
-      } else {
+      } 
+      else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("pengajuan pengecualian tidak valid"),
@@ -168,7 +157,11 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
 
         Navigator.pop(context);
       }
-    } else {
+    } 
+    else {
+      setState(() {
+        clicked = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Harap lengkapi data terlebih dahulu")),
       );
@@ -187,12 +180,13 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
   @override
   Widget build(BuildContext context) {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final int quota = ModalRoute.of(context)!.settings.arguments as int;
 
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;
 
     return Scaffold(
-      appBar: AppBar(title: Text("Ajukan Pengecualian")),
+      appBar: AppBar(title: Text("Cuti setengah hari")),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -303,7 +297,7 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                     onPressed: clicked
                         ? null
                         : () {
-                            _submitForm(other.pegawaiId);
+                            _submitForm(other.pegawaiId, quota);
                             setState(() {
                               clicked = true;
                             });
@@ -317,7 +311,7 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                       ),
                     ),
                     child: Text(
-                      "Ajukan pengeculian",
+                      "Ajukan cuti setengah hari",
                       style: TextStyle(
                         color: Colors.white, // warna teks putih
                         fontSize: 16,

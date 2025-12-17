@@ -15,6 +15,7 @@ class ExceptionPage extends ConsumerStatefulWidget {
 
 class _ExceptionPageState extends ConsumerState<ExceptionPage> {
   late Future<http.Response>? list;
+  DateTime? selectedDate;
 
   Future<http.Response> getLeaveList() async {
     final globalState = ref.read(globalStateProvider);
@@ -33,23 +34,6 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
     });
   }
 
-  final List<Map<String, dynamic>> exceptionData = [
-    {
-      "id": "EXC001",
-      "date": "2025-09-05",
-      "employee_id": "EMP001",
-      "reason": "Terlambat karena macet",
-      "status": "pending",
-    },
-    {
-      "id": "EXC002",
-      "date": "2025-09-04",
-      "employee_id": "EMP002",
-      "reason": "Lupa absen masuk",
-      "status": "approved",
-    },
-  ];
-
   Map<String, dynamic> getStatusColor(String status) {
     switch (status) {
       case "0":
@@ -63,14 +47,36 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
     }
   }
 
+  Future<void> refresh() async {
+    await fetch();
+  }
+
   @override
   void initState() {
     super.initState();
     fetch();
   }
 
+  DateTime makeLimit(List<String> start, int l) {
+    final now = DateTime.now();
+
+    final limit = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.parse(start[0]),
+      int.parse(start[1]),
+    ).add(Duration(minutes: l));
+
+    return limit;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final status = ref.read(globalStateProvider).status;
+    final schedule = ref.read(globalStateProvider).schedule;
+    final config = ref.read(globalStateProvider).config;
+
     return Scaffold(
       appBar: AppBar(title: Text("Pengecualian")),
       body: list != null
@@ -116,27 +122,111 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                 ),
                               ),
                               SizedBox(
-                                child: item['type'] == "Di luar kantor"
+                                child: item['type'] == "Absen masuk"
                                     ? TextButton(
                                         child: Text("Presensi masuk"),
                                         onPressed: () {
                                           if (item['status'] == "1") {
-                                            ref
-                                                .read(
-                                                  globalStateProvider.notifier,
-                                                )
-                                                .fFOCIMakeAllowed();
-                                            Navigator.pushNamed(
-                                              context,
-                                              '/signin',
-                                            );
+                                            if (!status.signedIn) {
+                                              if (DateTime.now().isBefore(
+                                                makeLimit(
+                                                  schedule.start.split(':'),
+                                                  config.tolerance +
+                                                      config.ciLimit,
+                                                ),
+                                              )) {
+                                                if (DateTime.now().isAfter(
+                                                  makeLimit(
+                                                    schedule.start.split(':'),
+                                                    0,
+                                                  ).subtract(
+                                                    Duration(minutes: 60),
+                                                  ),
+                                                )) {
+                                                  Navigator.pushNamed(
+                                                    context,
+                                                    '/signin',
+                                                    arguments: {'ffocia': true},
+                                                  );
+                                                } else {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        "Can not do presence in now",
+                                                      ),
+                                                      duration: Duration(
+                                                        seconds: 2,
+                                                      ), // lama tampil
+                                                      backgroundColor: Colors
+                                                          .blue, // warna background
+                                                    ),
+                                                  );
+                                                }
+                                              } else {
+                                                showDialog<bool>(
+                                                  context: context,
+                                                  builder: (context) => AlertDialog(
+                                                    title: const Text(
+                                                      'Kamu sudah tidak bisa absen masuk',
+                                                    ),
+                                                    content: const Text(
+                                                      'Apakah kamu telah mengajukan pengecualian keterlambatan?',
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => {
+                                                          Navigator.pop(
+                                                            context,
+                                                            false,
+                                                          ),
+                                                        },
+                                                        child: const Text(
+                                                          'Belum',
+                                                        ),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () => {
+                                                          Navigator.pushNamed(
+                                                            context,
+                                                            '/signin',
+                                                            arguments: {
+                                                              'ffocia': true,
+                                                            },
+                                                          ),
+                                                        },
+                                                        child: const Text(
+                                                          'Sudah',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }
+                                            } else {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Kamu sudah absen",
+                                                  ),
+                                                  duration: Duration(
+                                                    seconds: 2,
+                                                  ), // lama tampil
+                                                  backgroundColor: Colors
+                                                      .blue, // warna background
+                                                ),
+                                              );
+                                            }
                                           } else {
                                             ScaffoldMessenger.of(
                                               context,
                                             ).showSnackBar(
                                               SnackBar(
                                                 content: Text(
-                                                  'Pengajuan absen di luar belum distejui',
+                                                  'this exception is not approved yet',
                                                 ),
                                                 backgroundColor: Colors.blue,
                                                 duration: Duration(seconds: 2),
@@ -148,30 +238,190 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                     : SizedBox(),
                               ),
                               SizedBox(
-                                child: item['type'] == "Belum kembali ke kantor"
+                                child: item['type'] == "Lainnya"
                                     ? TextButton(
-                                        child: Text("Presensi pulang"),
+                                        child: Text("Presensi masuk"),
                                         onPressed: () {
                                           if (item['status'] == "1") {
-                                            ref
-                                                .read(
-                                                  globalStateProvider.notifier,
-                                                )
-                                                .fFOCOMakeAllowed();
-                                            Navigator.pushNamed(
-                                              context,
-                                              '/signout',
-                                            );
+                                            if (!status.signedIn) {
+                                              if (DateTime.now().isBefore(
+                                                makeLimit(
+                                                  schedule.start.split(':'),
+                                                  config.tolerance +
+                                                      config.ciLimit,
+                                                ),
+                                              )) {
+                                                if (DateTime.now().isAfter(
+                                                  makeLimit(
+                                                    schedule.start.split(':'),
+                                                    0,
+                                                  ).subtract(
+                                                    Duration(minutes: 60),
+                                                  ),
+                                                )) {
+                                                  Navigator.pushNamed(
+                                                    context,
+                                                    '/signin',
+                                                    arguments: {'ffocia': true},
+                                                  );
+                                                } else {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        "Tunggu beberapa saat lagi",
+                                                      ),
+                                                      duration: Duration(
+                                                        seconds: 2,
+                                                      ), // lama tampil
+                                                      backgroundColor: Colors
+                                                          .blue, // warna background
+                                                    ),
+                                                  );
+                                                }
+                                              } else {
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  '/signin',
+                                                  arguments: {'ffocia': true},
+                                                );
+                                              }
+                                            } else {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Kamu sudah absen",
+                                                  ),
+                                                  duration: Duration(
+                                                    seconds: 2,
+                                                  ), // lama tampil
+                                                  backgroundColor: Colors
+                                                      .blue, // warna background
+                                                ),
+                                              );
+                                            }
                                           } else {
                                             ScaffoldMessenger.of(
                                               context,
                                             ).showSnackBar(
                                               SnackBar(
                                                 content: Text(
-                                                  'Pengajuan absen di luar belum distejui',
+                                                  'this exception is not approved yet',
                                                 ),
                                                 backgroundColor: Colors.blue,
                                                 duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      )
+                                    : SizedBox(),
+                              ),
+
+                              SizedBox(
+                                child: item['type'] == "Cuti pulang"
+                                    ? TextButton(
+                                        child: Text("Presensi setengah hari"),
+                                        onPressed: () {
+                                          if (item['status'] == "1") {
+                                            Navigator.pushNamed(
+                                              context,
+                                              '/signout',
+                                              arguments: {'csh': true},
+                                            );
+                                          } else {
+                                            SnackBar(
+                                              content: Text(
+                                                "Can not do presence out now",
+                                              ),
+                                              duration: Duration(
+                                                seconds: 2,
+                                              ), // lama tampil
+                                              backgroundColor: Colors
+                                                  .blue, // warna background
+                                            );
+                                          }
+                                        },
+                                      )
+                                    : SizedBox(),
+                              ),
+                              SizedBox(
+                                child: item['type'] == "Absen pulang"
+                                    ? TextButton(
+                                        child: Text("Presensi pulang"),
+                                        onPressed: () {
+                                          if (DateTime.now().isBefore(
+                                            makeLimit(
+                                              schedule.finish.split(':'),
+                                              config.coLimit,
+                                            ),
+                                          )) {
+                                            if (DateTime.now().isAfter(
+                                              makeLimit(
+                                                schedule.finish.split(':'),
+                                                0,
+                                              ),
+                                            )) {
+                                              if (item["status"] == "1") {
+                                                ref
+                                                    .read(
+                                                      globalStateProvider
+                                                          .notifier,
+                                                    )
+                                                    .fFOCOMakeAllowed();
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  '/signout',
+                                                  arguments: {'csh': false},
+                                                );
+                                              } else {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      "this exception is not approved yet",
+                                                    ),
+                                                    duration: Duration(
+                                                      seconds: 2,
+                                                    ), // lama tampil
+                                                    backgroundColor: Colors
+                                                        .blue, // warna background
+                                                  ),
+                                                );
+                                              }
+                                            } else {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Can not do presence out now",
+                                                  ),
+                                                  duration: Duration(
+                                                    seconds: 2,
+                                                  ), // lama tampil
+                                                  backgroundColor: Colors
+                                                      .blue, // warna background
+                                                ),
+                                              );
+                                            }
+                                          } else {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  "Kamu sudah tidak bisa absen pulang",
+                                                ),
+                                                duration: Duration(
+                                                  seconds: 2,
+                                                ), // lama tampil
+                                                backgroundColor: Colors
+                                                    .blue, // warna background
                                               ),
                                             );
                                           }

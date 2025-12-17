@@ -16,24 +16,6 @@ class EmployeesPage extends ConsumerStatefulWidget {
 class _EmployeesPageState extends ConsumerState<EmployeesPage> {
   late Future<http.Response>? list;
 
-  final List<Map<String, String>> employees = [
-    {
-      'name': 'Iqbal Ramadhan',
-      'position': 'Frontend Developer',
-      'phone': '6281234567890',
-    },
-    {
-      'name': 'Rizky Hidayat',
-      'position': 'Backend Developer',
-      'phone': '6289876543210',
-    },
-    {
-      'name': 'Siti Aisyah',
-      'position': 'UI/UX Designer',
-      'phone': '6281112233445',
-    },
-  ];
-
   Future<http.Response> getEmployeeList() async {
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;
@@ -122,9 +104,14 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
                                 color: Colors.black54,
                               ),
                             ),
-                            trailing: Image.network(
-                              pp, // Ganti dengan path image kamu
-                              height: 45,
+                            trailing: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                24,
+                              ), // atur rounded
+                              child: Image.network(
+                                "https://t4.ftcdn.net/jpg/00/97/00/09/240_F_97000905_fsWItLsupPxPXA5yhpDixzZ69xmn3MbZ.jpg", // Ganti dengan path image kamu
+                                height: 45,
+                              ),
                             ),
                           ),
                         );

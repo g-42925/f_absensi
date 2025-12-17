@@ -47,6 +47,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         body: jsonEncode(credential),
       );
 
+      print(response.body);
+
       // if (response.statusCode == 200) {
       final responseBody = jsonDecode(response.body);
 
@@ -130,8 +132,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       final OverWork overWork = (onOverWork: false);
 
-      final ffocia = responseBody['result']['ffocia'] == 1 ? true : false;
-      final ffocoa = responseBody['result']['ffocoa'] == 1 ? true : false;
+      final ffocia = responseBody['result']['ffocia'] == "1" ? true : false;
+      final ffocoa = responseBody['result']['ffocoa'] == "1" ? true : false;
       final coLimit = int.parse(responseBody['result']['co_limit']);
       final ciLimit = int.parse(responseBody['result']['ci_limit']);
       final tolerance = int.parse(responseBody['result']['tolerance']);
@@ -160,6 +162,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         overWork: overWork,
         config: config,
         task: (started: [], finished: []),
+        exception: (list: []),
+        csh: (allowed: false),
       ));
 
       Navigator.pushReplacementNamed(context, '/');

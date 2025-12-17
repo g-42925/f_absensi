@@ -59,6 +59,8 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
       final response = await http.get(url);
       final result = jsonDecode(response.body);
 
+      print(result);
+
       Navigator.pushNamed(
         context,
         '/claim_submit',

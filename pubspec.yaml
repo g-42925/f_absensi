@@ -50,6 +50,10 @@ dependencies:
   image_picker: ^1.2.0
   timeago: ^3.6.0
   appwrite: ^20.3.0
+  http_parser: ^4.0.0   # untuk MediaType
+  flutter_image_compress: ^2.0.4
+  rename: ^3.1.0
+  flutter_datetime_picker_plus: ^2.0.2
   
 
 dev_dependencies:

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/global_state.dart';
-import '../env/env.dart';
 
 class MyHomePage extends ConsumerStatefulWidget {
   const MyHomePage({super.key});
@@ -26,63 +25,9 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     });
   }
 
-  void autoLogout(
-    BuildContext context,
-    bool loggedIn,
-    String date,
-    String id,
-  ) async {
-    // final authDate = DateTime.parse(date);
-    // final schedule = ref.read(globalStateProvider).schedule;
-
-    // final parts = schedule.nextStart.split(':');
-
-    // final expired = DateTime(
-    //   authDate.year,
-    //   authDate.month,
-    //   authDate.day,
-    //   int.parse(parts[0]),
-    //   int.parse(parts[1]),
-    //   int.parse(parts[2]),
-    // ).add(Duration(days: 1, hours: -1));
-
-    // if (loggedIn) {
-    //   if (DateTime.now().isAfter(expired)) {
-    //     try {
-    //       await supabase.from('sessions').delete().eq('employee_id', id);
-    //       Future.delayed(const Duration(seconds: 3), () {
-    //         Navigator.pushReplacementNamed(context, '/login');
-    //       });
-    //     } catch (e) {
-    //       Navigator.pushReplacementNamed(context, '/failed_sync');
-    //     }
-    //   }
-    // }
-  }
-
   @override
   void initState() {
     super.initState();
-
-    final auth = ref.read(globalStateProvider).auth;
-    final other = ref.read(globalStateProvider).other;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      isLoggedIn(auth.loggedIn);
-
-      if (auth.loggedIn) {
-        autoLogout(context, auth.loggedIn, auth.date, other.pegawaiId);
-      }
-    });
-  }
-
-  bool iSOTSD(String date) {
-    final dateNow = DateTime.now();
-    final dateX = DateTime.parse(date);
-    final c1 = DateTime(dateX.year, dateX.month, dateX.day);
-    final c2 = DateTime(dateNow.year, dateNow.month, dateNow.day);
-
-    return c2.isAfter(c1);
   }
 
   DateTime makeTime(DateTime param) {
@@ -96,107 +41,6 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
       param.minute,
     ).subtract(Duration(hours: 1));
   }
-
-  // ElevatedButton? createButton(
-  //   Status status,
-  //   Break breakInfo,
-  //   bool sOTSD,
-  //   Schedule schedule,
-  //   bool onOverWork,
-  // ) {
-  //   final globalState = ref.read(globalStateProvider);
-  //   final holiday = globalState.holiday;
-  //   final schedule = globalState.schedule;
-  //   DateTime targetTimeX = DateFormat(
-  //     "HH:mm",
-  //   ).parse(schedule.finish).add(Duration(hours: 1));
-
-  //   DateTime restriction = targetTimeX.add(Duration(minutes: 0));
-
-  //   if (!status.signedIn && !status.signedOut) {}
-
-  //   if (status.signedIn && breakInfo.onBreak) {
-  //     return ElevatedButton.icon(
-  //       onPressed: () {
-  //         Navigator.pushNamed(context, '/breakend');
-  //       },
-  //       icon: Icon(
-  //         Icons.local_cafe,
-  //         color: Colors.white, // warna ikon putih
-  //       ),
-  //       label: const Text(
-  //         'Selesai Istirahat',
-  //         style: TextStyle(
-  //           color: Colors.white,
-  //           fontSize: 14,
-  //           fontWeight: FontWeight.w500,
-  //         ),
-  //       ),
-  //       style: ElevatedButton.styleFrom(
-  //         backgroundColor: Colors.green, // hijau tosca
-  //         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-  //         shape: RoundedRectangleBorder(
-  //           borderRadius: BorderRadius.circular(30),
-  //         ),
-  //         elevation: 0, // tanpa shadow
-  //       ),
-  //     );
-  //   }
-
-  //   if (status.signedIn && !status.signedOut) {}
-
-  //   if (status.signedIn && status.signedOut && !onOverWork) {
-  //     return ElevatedButton.icon(
-  //       onPressed: () {},
-  //       label: const Text(
-  //         'Selamat beristirahat',
-  //         style: TextStyle(
-  //           color: Colors.white,
-  //           fontSize: 14,
-  //           fontWeight: FontWeight.w500,
-  //         ),
-  //       ),
-  //       style: ElevatedButton.styleFrom(
-  //         backgroundColor: Colors.green, // hijau tosca
-  //         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-  //         shape: RoundedRectangleBorder(
-  //           borderRadius: BorderRadius.circular(30),
-  //         ),
-  //         elevation: 0, // tanpa shadow
-  //       ),
-  //     );
-  //   }
-
-  //   if (status.signedIn && status.signedOut && onOverWork) {
-  //     return ElevatedButton.icon(
-  //       onPressed: () {
-  //         Navigator.pushNamed(context, '/overwork_end');
-  //       },
-  //       icon: Icon(
-  //         Icons.access_time,
-  //         color: Colors.white, // warna ikon putih
-  //       ),
-  //       label: const Text(
-  //         'Selesaikan Lembur',
-  //         style: TextStyle(
-  //           color: Colors.white,
-  //           fontSize: 14,
-  //           fontWeight: FontWeight.w500,
-  //         ),
-  //       ),
-  //       style: ElevatedButton.styleFrom(
-  //         backgroundColor: Colors.green, // hijau tosca
-  //         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-  //         shape: RoundedRectangleBorder(
-  //           borderRadius: BorderRadius.circular(30),
-  //         ),
-  //         elevation: 0, // tanpa shadow
-  //       ),
-  //     );
-  //   }
-
-  //   return null;
-  // }
 
   Widget SplashScreen(loggedIn) {
     Future.delayed(const Duration(seconds: 8), () {
@@ -250,17 +94,13 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     final company = globalState.company;
     final schedule = globalState.schedule;
     final status = globalState.status;
-    final breakInfo = globalState.breakInfo;
     final auth = globalState.auth;
     final config = globalState.config;
     final breakStartTime = auth.loggedIn ? schedule.breakStart : "00:00";
     final breakStart = DateFormat("HH:mm").parse(breakStartTime);
-    final onOverWork = globalState.overWork.onOverWork;
     final pp = globalState.other.fotoPegawai;
-    DateTime targetTime = DateFormat("HH:mm").parse("00:00");
 
-    final String message =
-        "maka sesungguhnya bersama kesulitan itu ada kemudahan";
+    final String message = "Fokus pada langkah, bukan jaraknya";
 
     return auth.loggedIn
         ? Scaffold(
@@ -327,7 +167,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                     16.0,
                                   ), // ubah angka untuk radius berbeda
                                   child: Image.network(
-                                    "${Env.api}/assets/uploaded/components/${company.logo}",
+                                    "${company.logo}",
                                     width: 70,
                                     height: 70,
                                     fit: BoxFit.cover,
@@ -415,7 +255,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                         children: [
                           IconLabel(
                             icon: Icons.login,
-                            label: 'Masuk',
+                            label: 'Check-in',
                             onPressed: () {
                               if (!status.signedIn) {
                                 if (DateTime.now().isBefore(
@@ -430,12 +270,17 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                       0,
                                     ).subtract(Duration(minutes: 60)),
                                   )) {
-                                    Navigator.pushNamed(context, '/signin');
-                                  } else {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/signin',
+                                      arguments: {'ffocia': false},
+                                    );
+                                  } 
+                                  else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                          "Tunggu beberapa saat lagi",
+                                          "belum bisa absen masuk sekarang",
                                         ),
                                         duration: Duration(
                                           seconds: 2,
@@ -445,11 +290,12 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                       ),
                                     );
                                   }
-                                } else {
+                                } 
+                                else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                        "Kamu sudah melewati batas waktu absen masuk",
+                                        "Kamu sudah tidak bisa absen masuk",
                                       ),
                                       duration: Duration(
                                         seconds: 2,
@@ -560,23 +406,27 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                           ),
                           IconLabel(
                             icon: Icons.logout,
-                            label: 'Keluar',
+                            label: 'Checkout',
                             onPressed: () {
-                              if (DateTime.now().isBefore(
-                                    makeLimit(
-                                      schedule.finish.split(':'),
-                                      config.coLimit,
-                                    ),
-                                  ) &&
-                                  DateTime.now().isAfter(
-                                    makeLimit(schedule.finish.split(':'), 0),
-                                  )) {
-                                Navigator.pushNamed(context, '/signout');
-                              } else {
+                              if (DateTime.now().isBefore(makeLimit(schedule.finish.split(':'),config.coLimit))) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                      "Kamu sudah melewati batas waktu untuk absen pulang",
+                                      "Belum bisa absen pulang sekarang",
+                                    ),
+                                    duration: Duration(
+                                        seconds: 2,
+                                    ), // lama tampil
+                                    backgroundColor:
+                                    Colors.blue, // warna background
+                                  ),
+                                );
+                              } 
+                              else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Kamu sudah tidak bisa absen pulang",
                                     ),
                                     duration: Duration(
                                       seconds: 2,
@@ -643,7 +493,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                             color: Colors.white,
                           ),
                           label: const Text(
-                            'Keluar',
+                            'Logout',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,

@@ -3,7 +3,9 @@ import 'dart:io';
 import 'dart:ui';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
@@ -40,6 +42,8 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
   String locationName = 'Anda berada di luar area presensi';
 
   String selectedValue = "";
+
+  bool clicked = false;
 
   Map<String, String> loc = {
     'subDistrict': '',
@@ -108,16 +112,13 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
     final globalState = ref.read(globalStateProvider);
     final locations = globalState.location.list;
 
-    for (var locs in locations) {
-      final lat1 = latitude;
+    return locations.any((locs) {
       final lat2 = double.parse(locs['lat']);
-      final lon1 = longitude;
       final lon2 = double.parse(locs['lon']);
-      final distance = haversineDistance(lat1, lat2, lon1, lon2);
-      return distance < 10 ? false : true;
-    }
+      final distance = haversineDistance(latitude, lat2, longitude, lon2);
 
-    return false;
+      return distance <= 50; // true jika ada lokasi dalam 50 meter
+    });
   }
 
   String setLocation(double latitude, double longitude) {
@@ -160,7 +161,7 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
       final response = jsonDecode(requestResponse.body);
       final target = response['results'][0];
       final addressComponents = target['address_components'];
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/taskstart");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
       final headers = {"Content-type": "application/json"};
@@ -168,6 +169,7 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
       final formatted = DateFormat('yyyy-MM-dd').format(now);
       final formattedSecond = DateFormat('HH:mm:ss').format(now);
       final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+      final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
 
       loc['address'] = target['formatted_address'];
       loc['subDistrict'] = addressComponents[3]['short_name'];
@@ -183,16 +185,59 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 
       final result = await captureScreen();
 
-      await supabase.storage
-          .from('storage')
-          .uploadBinary(fileName, result.asUint8List());
+      final bytes = result.asUint8List();
 
-      final publicUrl = await supabase.storage
-          .from('storage')
-          .getPublicUrl(fileName);
+      final compressed = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 1080,
+        minHeight: 1920,
+        quality: 50,
+        format: CompressFormat.jpeg, // penting, karena png lebih besar
+      );
+
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8), // ubah sesuai selera
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text('submit is loading, please wait...'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final request = http.MultipartRequest('POST', uploadUrl);
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file', // field name
+          compressed, // file data
+          filename: fileName,
+          contentType: MediaType('image', 'png'),
+        ),
+      );
+
+      final streamedResponse = await request.send();
+
+      if (streamedResponse.statusCode != 200) {
+        print("something went wrong");
+      }
+
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      final uploadResponse = responseBody;
 
       final params = {
-        "start_photo": publicUrl,
+        "start_photo": uploadResponse,
         "start_location": "$latitude/$longitude",
         "employee_id": pegawaiId,
         'task_id': id,
@@ -216,13 +261,54 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 
         Navigator.pop(context);
       } else {
+        Navigator.of(context).pop();
+
         ref.read(globalStateProvider.notifier).startTask(id);
-        setState(() {
-          latitude = latitude;
-          longitude = longitude;
-          path = img.path;
-          preview = false;
-        });
+
+        (() async {
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (_) => Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'task submit is success',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 5),
+                    Icon(Icons.check_circle, color: Colors.green, size: 28),
+                  ],
+                ),
+              ),
+            ),
+          );
+
+          await Future.delayed(Duration(seconds: 1));
+
+          setState(() {
+            latitude = latitude;
+            longitude = longitude;
+            path = img.path;
+            preview = false;
+          });
+
+          Navigator.of(context).pop();
+
+          await Future.delayed(Duration(seconds: 1));
+
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/',
+            (Route<dynamic> route) => false,
+          );
+        })();
       }
     } catch (err) {
       print("error");
@@ -399,12 +485,17 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
                         width: double.infinity, // membuat selebar layar
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green[600], // hijau gelap
+                            backgroundColor: clicked
+                                ? Colors.red
+                                : Colors.green[600], // hijau gelap
                             padding: EdgeInsets.symmetric(
                               vertical: 16,
                             ), // tinggi button
                           ),
                           onPressed: () {
+                            setState(() {
+                              clicked = true;
+                            });
                             captureAndUpload(
                               latitude,
                               longitude,

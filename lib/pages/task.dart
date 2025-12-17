@@ -1,19 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
-import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/global_state.dart';
 import '../env/env.dart';
 import 'dart:async';
-import 'package:intl/intl.dart';
 
 class TaskPage extends ConsumerStatefulWidget {
   final Future<Map<String, double>> coord;
@@ -27,6 +19,8 @@ class TaskPage extends ConsumerStatefulWidget {
 
 class _TaskPageState extends ConsumerState<TaskPage> {
   late Future<http.Response>? list;
+  DateTime? selectedDate;
+  bool doneBtnIsClicked = false;
 
   Future<http.Response> getTaskList() async {
     final globalState = ref.read(globalStateProvider);
@@ -44,6 +38,22 @@ class _TaskPageState extends ConsumerState<TaskPage> {
     return response;
   }
 
+  Future<void> pickDate(BuildContext context) async {
+    final DateTime now = DateTime.now();
+    final DateTime yesterday = now.subtract(Duration(days: 1));
+
+    final DateTime? date = await showDatePicker(
+      context: context,
+      initialDate: yesterday, // BUKAN hari ini!
+      firstDate: DateTime(2000),
+      lastDate: yesterday, // batas sampai kemarin
+    );
+
+    if (date != null) {
+      selectedDate = date;
+    }
+  }
+
   Future<void> fetch() async {
     setState(() {
       list = null;
@@ -57,36 +67,6 @@ class _TaskPageState extends ConsumerState<TaskPage> {
   void initState() {
     super.initState();
     fetch();
-
-    // WidgetsBinding.instance.addPostFrameCallback((_) async {
-    //   await Future.delayed(Duration(seconds: 2));
-    //   final globalState = ref.read(globalStateProvider);
-    //   final locations = globalState.location.list;
-    //   final coordinate = await widget.coord;
-
-    //   for (var locs in locations) {
-    //     final lat1 = coordinate['lat'];
-    //     final lat2 = double.parse(locs['lat']);
-    //     final lon1 = coordinate['lon'];
-    //     final lon2 = double.parse(locs['lon']);
-
-    //     if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
-    //       setState(() {
-    //         latitude = lat2;
-    //         longitude = lon2;
-    //         locationName = locs['locationName'];
-    //       });
-    //     } else {
-    //       setState(() {
-    //         latitude = lat1 as double;
-    //         longitude = lon1 as double;
-    //       });
-    //     }
-    //   }
-
-    //   print(latitude);
-    //   print(longitude);
-    // });
   }
 
   @override
@@ -95,170 +75,241 @@ class _TaskPageState extends ConsumerState<TaskPage> {
     return Scaffold(
       appBar: AppBar(title: Text("Penugasan")),
       body: list != null
-          ? FutureBuilder(
-              future: list,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text("something went wrong"));
-                } else {
-                  final response = snapshot.data!;
-                  final data = jsonDecode(response.body);
-                  if (data['success'] as bool) {
-                    return ListView.builder(
-                      itemCount: (data['result'] as List).length,
-                      itemBuilder: (context, index) {
-                        final item = (data['result'] as List)[index];
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              6,
-                            ), // ubah angka 20 sesuai keinginan
-                          ),
-                          margin: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          elevation: 3,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: ListTile(
-                                  leading: Icon(Icons.event_note),
-                                  title: Text(
-                                    "Tgl: ${item['date']}",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    "Description: ${item['description']}",
-                                  ),
+          ? Column(
+              children: [
+                Padding(
+                  padding: EdgeInsetsGeometry.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => pickDate(context),
+                          child: Text('Select date'),
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: doneBtnIsClicked ? Colors.red : null,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            doneBtnIsClicked = !doneBtnIsClicked;
+                          });
+                        },
+                        child: Text('Done'),
+                      ),
+                      SizedBox(width: 6),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          if (doneBtnIsClicked) {
+                            Navigator.pushNamed(
+                              context,
+                              '/done_task',
+                              arguments: {'f': selectedDate},
+                            );
+                          } else {
+                            if (selectedDate != null) {
+                              Navigator.pushNamed(
+                                context,
+                                '/task_filter',
+                                arguments: {'f': selectedDate},
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("please select date first"),
+                                  duration: Duration(seconds: 2), // lama tampil
+                                  backgroundColor:
+                                      Colors.blue, // warna background
                                 ),
-                              ),
-                              TextButton(
-                                child: Text("Mulai"),
-                                onPressed: () {
-                                  final limit = DateTime.parse(
-                                    "${item['date']} 00:00:00",
-                                  ).add(Duration(days: 1));
-                                  if (DateTime.now().isAfter(limit)) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Form tugas ini sudah kadaluwarsa',
-                                        ),
-                                        backgroundColor: Colors.blue,
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  } else {
-                                    if (task.started.contains(
-                                      item['task_id'],
-                                    )) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Sudah submit data kehadiran',
+                              );
+                            }
+                          }
+                        },
+                        label: Text('filter'),
+                        icon: Icon(Icons.arrow_right),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: FutureBuilder(
+                    future: list,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text("something went wrong"));
+                      } else {
+                        final response = snapshot.data!;
+                        final data = jsonDecode(response.body);
+                        if (data['success'] as bool) {
+                          return ListView.builder(
+                            itemCount: (data['result'] as List).length,
+                            itemBuilder: (context, index) {
+                              final item = (data['result'] as List)[index];
+                              return Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    6,
+                                  ), // ubah angka 20 sesuai keinginan
+                                ),
+                                margin: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                elevation: 3,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: ListTile(
+                                        leading: Icon(Icons.event_note),
+                                        title: Text(
+                                          "Tgl: ${item['date']}",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          backgroundColor: Colors.blue,
-                                          duration: Duration(seconds: 2),
                                         ),
-                                      );
-                                    } else {
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/task_start',
-                                        arguments: {'task_id': item['task_id']},
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                              TextButton(
-                                child: Text("Selesai"),
-                                onPressed: () {
-                                  final limit = DateTime.parse(
-                                    "${item['date']} 00:00:00",
-                                  ).add(Duration(days: 1));
-                                  if (DateTime.now().isAfter(limit)) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Form tugas ini sudah kadaluwarsa',
+                                        subtitle: Text(
+                                          "Description: ${item['description']}",
                                         ),
-                                        backgroundColor: Colors.blue,
-                                        duration: Duration(seconds: 2),
                                       ),
-                                    );
-                                  } else {
-                                    if (task.finished.contains(
-                                      item['task_id'],
-                                    )) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'tugas ini sudah selesai',
-                                          ),
-                                          backgroundColor: Colors.blue,
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    } else {
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/task_end',
-                                        arguments: {'task_id': item['task_id']},
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                              TextButton(
-                                child: Text("Edit"),
-                                onPressed: () {
-                                  final limit = DateTime.parse(
-                                    "${item['date']} 00:00:00",
-                                  ).add(Duration(days: 1));
-                                  if (DateTime.now().isAfter(limit)) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Form tugas ini sudah kadaluwarsa',
-                                        ),
-                                        backgroundColor: Colors.blue,
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  } else {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/task_edit',
-                                      arguments: {
-                                        'date': item['date'],
-                                        'desc': item['description'],
-                                        'id': item['task_id'],
+                                    ),
+                                    TextButton(
+                                      child: Text("Mulai"),
+                                      onPressed: () {
+                                        final limit = DateTime.parse(
+                                          "${item['date']} 00:00:00",
+                                        ).add(Duration(days: 1));
+                                        if (DateTime.now().isAfter(limit)) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Form tugas ini sudah kadaluwarsa',
+                                              ),
+                                              backgroundColor: Colors.blue,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        } else {
+                                          if (task.started.contains(
+                                            item['task_id'],
+                                          )) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Sudah submit data kehadiran',
+                                                ),
+                                                backgroundColor: Colors.blue,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          } else {
+                                            Navigator.pushNamed(
+                                              context,
+                                              '/task_start',
+                                              arguments: {
+                                                'task_id': item['task_id'],
+                                              },
+                                            );
+                                          }
+                                        }
                                       },
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  }
-                }
-
-                return SizedBox();
-              },
+                                    ),
+                                    TextButton(
+                                      child: Text("Selesai"),
+                                      onPressed: () {
+                                        final limit = DateTime.parse(
+                                          "${item['date']} 00:00:00",
+                                        ).add(Duration(days: 1));
+                                        if (DateTime.now().isAfter(limit)) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Form tugas ini sudah kadaluwarsa',
+                                              ),
+                                              backgroundColor: Colors.blue,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        } else {
+                                          if (task.finished.contains(
+                                            item['task_id'],
+                                          )) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'tugas ini sudah selesai',
+                                                ),
+                                                backgroundColor: Colors.blue,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          } else {
+                                            Navigator.pushNamed(
+                                              context,
+                                              '/task_end',
+                                              arguments: {
+                                                'task_id': item['task_id'],
+                                              },
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                    TextButton(
+                                      child: Text("Edit"),
+                                      onPressed: () {
+                                        final limit = DateTime.parse(
+                                          "${item['date']} 00:00:00",
+                                        ).add(Duration(days: 1));
+                                        if (DateTime.now().isAfter(limit)) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Form tugas ini sudah kadaluwarsa',
+                                              ),
+                                              backgroundColor: Colors.blue,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        } else {
+                                          Navigator.pushNamed(
+                                            context,
+                                            '/task_edit',
+                                            arguments: {
+                                              'date': item['date'],
+                                              'desc': item['description'],
+                                              'id': item['task_id'],
+                                            },
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        }
+                      }
+                      return SizedBox();
+                    },
+                  ),
+                ),
+              ],
             )
           : SizedBox(),
       floatingActionButton: FloatingActionButton(

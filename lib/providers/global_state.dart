@@ -8,6 +8,9 @@ typedef Holiday = ({bool holiday, bool workDay});
 typedef Auth = ({bool loggedIn, String date});
 typedef Status = ({bool signedIn, bool signedOut});
 typedef OverWork = ({bool onOverWork});
+typedef Exception = ({List<String> list});
+typedef Csh = ({bool allowed});
+
 typedef Config = ({
   bool ffocia,
   bool ffocoa,
@@ -15,6 +18,7 @@ typedef Config = ({
   int ciLimit,
   int tolerance,
 });
+
 typedef Task = ({List<String> started, List<String> finished});
 
 typedef Company = ({
@@ -66,6 +70,8 @@ typedef GlobalState = ({
   OverWork overWork,
   Config config,
   Task task,
+  Exception exception,
+  Csh csh,
 });
 
 final globalStateProvider =
@@ -108,6 +114,8 @@ final globalStateProvider =
           tolerance: 0,
         ),
         task: (started: [], finished: []),
+        exception: (list: []),
+        csh: (allowed: false),
       ));
     });
 
@@ -138,6 +146,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: (started: newStartedTaskList, finished: finishedTaskList),
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -161,6 +171,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: (started: startedTaskList, finished: newFinishedTaskList),
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -183,26 +195,52 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
   logout() {
     state = (
+      history: [],
+      permission: (id: 0),
       auth: (loggedIn: false, date: ''),
       status: (signedIn: false, signedOut: false),
-      company: state.company,
-      schedule: state.schedule,
-      location: state.location,
-      position: state.position,
-      other: state.other,
-      history: state.history,
-      permission: state.permission,
-      coordinate: state.coordinate,
-      holiday: state.holiday,
-      breakInfo: state.breakInfo,
-      overWork: state.overWork,
-      config: state.config,
-      task: state.task,
+      company: (id: '', name: '', logo: '', address: '', salaryDate: 0),
+      schedule: (
+        start: '',
+        nextStart: '',
+        finish: '',
+        breakStart: '',
+        breakFinish: '',
+        workSystem: '',
+        workSystemName: '',
+      ),
+      location: (list: []),
+      position: (lat: 0, lon: 0),
+      coordinate: (lat: 0, lon: 0),
+      other: (
+        pegawaiId: '',
+        namaPegawai: '',
+        nomorPegawai: '',
+        emailPegawai: '',
+        fotoPegawai: '',
+        position: '',
+        status: '',
+      ),
+      holiday: (holiday: false, workDay: true),
+      breakInfo: (onBreak: false, startFrom: ''),
+      overWork: (onOverWork: false),
+      config: (
+        ffocia: false,
+        ffocoa: false,
+        coLimit: 0,
+        ciLimit: 0,
+        tolerance: 0,
+      ),
+      task: (started: [], finished: []),
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -223,6 +261,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -243,6 +283,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -263,6 +305,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -283,6 +327,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: false),
     );
   }
 
@@ -313,11 +359,17 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
   fFOCOMakeAllowed() {
-    final Status status = (signedIn: state.status.signedIn, signedOut: false);
+    final Status status = (
+      signedIn: state.status.signedIn,
+      signedOut: state.status.signedOut,
+    );
+
     final Config config = (
       ffocia: state.config.ffocia,
       ffocoa: true,
@@ -342,6 +394,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -367,6 +421,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -389,6 +445,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -411,6 +469,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -433,6 +493,32 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       overWork: state.overWork,
       config: state.config,
       task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+    );
+  }
+
+  addException(String identifier) {
+    final newExceptionList = [...state.exception.list, identifier];
+
+    state = (
+      auth: state.auth,
+      status: (signedIn: false, signedOut: false),
+      company: state.company,
+      schedule: state.schedule,
+      location: state.location,
+      position: state.position,
+      other: state.other,
+      history: state.history,
+      permission: state.permission,
+      coordinate: state.coordinate,
+      holiday: state.holiday,
+      breakInfo: state.breakInfo,
+      overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: (list: newExceptionList),
+      csh: (allowed: state.csh.allowed),
     );
   }
 
@@ -453,6 +539,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
     final overWorkJson = json['overWork'] ?? {};
     final configJson = json['config'] ?? {};
     final taskJson = json['task'] ?? {};
+    final exceptionJson = json['exception'] ?? {};
+    final cshJson = json['csh'] ?? {};
 
     return (
       auth: (
@@ -523,6 +611,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         started: List<String>.from(taskJson['started'] ?? []),
         finished: List<String>.from(taskJson['finished'] ?? []),
       ),
+      exception: (list: List<String>.from(exceptionJson['list'] ?? [])),
+      csh: (allowed: cshJson['allowed'] as bool),
     );
   }
 
@@ -580,6 +670,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         'tolerance': state.config.tolerance,
       },
       'task': {'started': state.task.started, 'finished': state.task.finished},
+      'exception': {'list': state.exception.list},
+      'csh': {'allowed': state.csh.allowed},
     };
   }
 }

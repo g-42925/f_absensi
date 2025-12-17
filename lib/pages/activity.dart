@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:timeago/timeago.dart' as timeago;
 import 'package:f_absensi/env/env.dart';
 import 'package:f_absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
@@ -28,9 +27,6 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
 
   Future<void> fetch() async {
     setState(() {
-      list = null;
-    });
-    setState(() {
       list = getActivityList();
     });
   }
@@ -58,8 +54,25 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                   );
                 } else {
                   final response = snapshot.data!;
-                  print(response.body);
-                  final data = jsonDecode(response.body);
+                  //final data = jsonDecode(response.body);
+                  final body = response.body;
+
+                  dynamic data;
+                  try {
+                    data = jsonDecode(body);
+                  } catch (e) {
+                    return Center(child: Text("Invalid server response"));
+                  }
+
+                  if (data is! List) {
+                    return Center(child: Text("No activity available"));
+                  }
+                  if (response.statusCode != 200) {
+                    return Center(
+                      child: Text("Server error: ${response.statusCode}"),
+                    );
+                  }
+
                   return ListView.builder(
                     itemCount: data.length,
                     itemBuilder: (context, index) {

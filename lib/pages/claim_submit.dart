@@ -18,31 +18,10 @@ class ClaimSubmitPage extends ConsumerStatefulWidget {
 class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController valueController = TextEditingController();
-  DateTime? _selectedDate;
-  String? selectedValue; // nilai yang dipilih
+  String? selectedValue;
+
   final ImagePicker _picker = ImagePicker();
   XFile? _image;
-
-  final List<Map<String, String>> list = [
-    {'id': '68cf640082e8c', 'value': 'Tiket perjalanan'},
-    {'id': '68cf640082e8x', 'value': 'Alat tulis kantor'},
-  ];
-
-  final List<String> items = ['Indonesia', 'Jepang', 'Korea', 'Amerika'];
-
-  Future<void> _pickDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
-  }
 
   Future<void> _pickImage(ImageSource source) async {
     final XFile? image = await _picker.pickImage(source: source);
@@ -54,58 +33,60 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
   }
 
   void _submitForm(String pegawaiId) async {
-    final url = Uri.parse("${Env.api}/api/mobile/makeclaim");
-    final supabase = Supabase.instance.client;
-    final file = File(_image!.path);
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
-    await supabase.storage.from('storage').upload(fileName, file);
+    if (_image == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Silahkan upload foto bukti terlebih dahulu")),
+      );
+      return;
+    }
 
-    final uploaded = supabase.storage.from('storage').getPublicUrl(fileName);
-
-    final headers = {"Content-type": "application/json"};
-
-    if (_formKey.currentState!.validate()) {
-      final exceptionData = {
-        "value": valueController.text,
-        "employee_id": pegawaiId,
-        'reimburse_id': selectedValue,
-        'photo': uploaded,
-      };
-
-      try {
-        final exc = await http.post(
-          url,
-          headers: headers,
-          body: jsonEncode(exceptionData),
-        );
-
-        if (jsonDecode(exc.body)['success']) {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/',
-            (Route<dynamic> route) => false,
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("coba beberapa saat lagi"),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } catch (e) {
-        print(e);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("gagal mengajukan pengecualian!"),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } else {
+    if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Harap lengkapi data terlebih dahulu")),
+      );
+      return;
+    }
+
+    final url = Uri.parse("${Env.api}/api/mobile/makeclaim");
+    final supabase = Supabase.instance.client;
+
+    final file = File(_image!.path);
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
+
+    await supabase.storage.from('storage').upload(fileName, file);
+    final uploaded = supabase.storage.from('storage').getPublicUrl(fileName);
+
+    final payload = {
+      "value": valueController.text,
+      "employee_id": pegawaiId,
+      "reimburse_id": selectedValue,
+      "photo": uploaded,
+    };
+
+    try {
+      final exc = await http.post(
+        url,
+        headers: {"Content-type": "application/json"},
+        body: jsonEncode(payload),
+      );
+
+      final res = jsonDecode(exc.body);
+
+      if (res['success'] == true) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/',
+          (Route<dynamic> route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Coba beberapa saat lagi")),
+        );
+      }
+    } catch (e) {
+      print(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal mengajukan pengajuan!")),
       );
     }
   }
@@ -114,14 +95,16 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
   Widget build(BuildContext context) {
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;
+
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     final List<Map<String, dynamic>> resultList =
         List<Map<String, dynamic>>.from(args['result']);
+    
+    print(resultList);
 
-    // Sekarang bisa map dengan aman
-    final List<Map<String, String>> list = resultList
+    final List<Map<String, String>> reimburseList = resultList
         .map(
           (n) => {
             'value': n['reimburse_id'].toString(),
@@ -134,109 +117,103 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text("Ajukan Reimburse")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Pilih tanggal
-              Container(
-                margin: const EdgeInsets.all(8),
-                child: Text("Jenis Reimburse"),
-              ),
-              Container(
-                margin: const EdgeInsets.all(8),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade400),
-                ),
-                child: DropdownButton<String>(
-                  value: selectedValue,
-                  hint: const Text('Pilih jenis reimburse'),
-                  isExpanded: true, // biar lebar mengikuti parent
-                  underline: const SizedBox(), // hilangkan garis bawaan
-                  items: list.map((Map<String, String> r) {
-                    return DropdownMenuItem<String>(
-                      value: r['value'],
-                      child: Text(r['name']!),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedValue = value;
-                    });
-                  },
-                ),
-              ),
-              SizedBox(height: 8),
-              Container(
-                margin: const EdgeInsets.all(8),
-                child: TextFormField(
-                  controller: valueController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: "Jumlah",
-                    border: OutlineInputBorder(),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  // Dropdown label
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text("Jenis Reimburse"),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return "Jumlah tidak boleh kosong";
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              SizedBox(height: 8),
-              Container(
-                margin: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _pickImage(ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('From Galery'),
-                      ),
+
+                  // FIX: dropdown tidak tertutupi oleh widget lain
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _pickImage(ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('New Image'),
-                      ),
+                    child: DropdownButton<String>(
+                      value: selectedValue,
+                      isExpanded: true,
+                      underline: SizedBox(),
+                      hint: Text("Pilih jenis reimburses"),
+                      items: reimburseList.map((r) {
+                        return DropdownMenuItem<String>(
+                          value: r['value'],
+                          child: Text(r['name']!),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedValue = value;
+                        });
+                      },
                     ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 8),
-              // Tombol Submit
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.all(8),
-                child: ElevatedButton.icon(
-                  icon: Icon(Icons.send),
-                  label: Text("Kirim Pengajuan"),
-                  onPressed: () => {_submitForm(other.pegawaiId)},
-                ),
-              ),
-              SizedBox(height: 24),
-              if (_image != null && !isKeyboardVisible)
-                Center(
-                  child: Image.file(
-                    File(_image!.path),
-                    width: 250,
-                    height: 250,
-                    fit: BoxFit.cover,
                   ),
-                )
-              else if (!isKeyboardVisible)
-                const Text('Silahkan tambahkan bukti pengajuan'),
-            ],
+
+                  SizedBox(height: 16),
+
+                  // Input jumlah
+                  TextFormField(
+                    controller: valueController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: "Jumlah",
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return "Jumlah tidak boleh kosong";
+                      }
+                      return null;
+                    },
+                  ),
+
+                  SizedBox(height: 16),
+
+                  // Tombol upload gambar
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _pickImage(ImageSource.gallery),
+                          icon: Icon(Icons.photo_library),
+                          label: Text('From Gallery'),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _pickImage(ImageSource.camera),
+                          icon: Icon(Icons.camera_alt),
+                          label: Text('New Image'),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: 16),
+
+                  // Tombol submit
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: Icon(Icons.send),
+                      label: Text("Kirim Pengajuan"),
+                      onPressed: () => _submitForm(other.pegawaiId),
+                    ),
+                  )
+                ],
+              ),
+            ),
           ),
         ),
       ),

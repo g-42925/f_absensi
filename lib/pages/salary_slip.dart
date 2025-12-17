@@ -50,7 +50,6 @@ class InfoRow extends StatelessWidget {
 class _SalarySlipPageState extends ConsumerState<SalarySlipPage> {
   DateTime? selectedDate1;
   DateTime? selectedDate2;
-  final _formKey = GlobalKey<FormState>();
 
   DateTime? tanggalMulai;
   DateTime? tanggalSelesai;
@@ -192,7 +191,9 @@ class _SalarySlipPageState extends ConsumerState<SalarySlipPage> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
-                Center(child: Text("Periode: $start - $end")),
+                Center(
+                  child: Text("Periode: ${args['tglX']} - ${args['tglY']}"),
+                ),
                 const SizedBox(height: 16),
 
                 // Info Karyawan

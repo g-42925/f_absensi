@@ -3,11 +3,13 @@ import 'package:f_absensi/pages/break.dart';
 import 'package:f_absensi/pages/break_end.dart';
 import 'package:f_absensi/pages/claim.dart';
 import 'package:f_absensi/pages/claim_submit.dart';
+import 'package:f_absensi/pages/done_task.dart';
 import 'package:f_absensi/pages/employees.dart';
 import 'package:f_absensi/pages/exception.dart';
 import 'package:f_absensi/pages/exception_add.dart';
 import 'package:f_absensi/pages/exception_edit.dart';
 import 'package:f_absensi/pages/failed_sync.dart';
+import 'package:f_absensi/pages/half_leave.dart';
 import 'package:f_absensi/pages/leave.dart';
 import 'package:f_absensi/pages/leave_apply.dart';
 import 'package:f_absensi/pages/notification.dart';
@@ -23,6 +25,7 @@ import 'package:f_absensi/pages/task.dart';
 import 'package:f_absensi/pages/task_add.dart';
 import 'package:f_absensi/pages/task_edit.dart';
 import 'package:f_absensi/pages/task_end.dart';
+import 'package:f_absensi/pages/task_filter.dart';
 import 'package:f_absensi/pages/task_start.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -85,6 +88,7 @@ class MyApp extends StatelessWidget {
   Map<String, WidgetBuilder> createRoute(BuildContext context) {
     return {
       '/': (_) => MyHomePage(),
+      '/half_leave': (_) => HalfLeavePage(),
       '/claim': (_) => ClaimPage(),
       '/make_task': (_) => TaskAddPage(),
       '/failed_sync': (_) => FailedSyncPage(),
@@ -95,6 +99,11 @@ class MyApp extends StatelessWidget {
       '/task_end': (_) =>
           TaskEndPage(camera: camera, coord: getLocation(context)),
       '/task': (_) => TaskPage(camera: camera, coord: getLocation(context)),
+      '/task_filter': (_) =>
+          TaskFilterPage(camera: camera, coord: getLocation(context)),
+      '/done_task': (_) =>
+          DoneTaskPage(camera: camera, coord: getLocation(context)),
+
       '/employees': (_) => EmployeesPage(),
       '/notification': (_) => NotificationPage(),
       '/activity': (_) => ActivityPage(),
