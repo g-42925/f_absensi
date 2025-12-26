@@ -151,6 +151,7 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                             itemBuilder: (context, index) {
                               final item = (data['result'] as List)[index];
                               return Card(
+                                color: task.finished.contains(item['task_id']) ? Colors.green : Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(
                                     6,
@@ -167,18 +168,25 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                       child: ListTile(
                                         leading: Icon(Icons.event_note),
                                         title: Text(
-                                          "Tgl: ${item['date']}",
+                                          item['date'],
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
+                                            color:task.finished.contains(item['task_id']) ? Colors.white : Colors.black
                                           ),
                                         ),
                                         subtitle: Text(
-                                          "Description: ${item['description']}",
+                                          item['description'],
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color:task.finished.contains(item['task_id']) ? Colors.white : Colors.black
+                                          ),
                                         ),
                                       ),
                                     ),
-                                    TextButton(
-                                      child: Text("Mulai"),
+                                    !task.started.contains(item['task_id'])
+                                    ?
+                                    IconButton(
+                                      icon: const Icon(Icons.login),
                                       onPressed: () {
                                         final limit = DateTime.parse(
                                           "${item['date']} 00:00:00",
@@ -195,35 +203,24 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                               duration: Duration(seconds: 2),
                                             ),
                                           );
-                                        } else {
-                                          if (task.started.contains(
-                                            item['task_id'],
-                                          )) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Sudah submit data kehadiran',
-                                                ),
-                                                backgroundColor: Colors.blue,
-                                                duration: Duration(seconds: 2),
-                                              ),
-                                            );
-                                          } else {
-                                            Navigator.pushNamed(
-                                              context,
-                                              '/task_start',
-                                              arguments: {
-                                                'task_id': item['task_id'],
-                                              },
-                                            );
-                                          }
+                                        } 
+                                        else {
+                                          Navigator.pushNamed(
+                                            context,
+                                            '/task_start',
+                                            arguments: {
+                                              'task_id': item['task_id'],
+                                            },
+                                          );
                                         }
-                                      },
-                                    ),
-                                    TextButton(
-                                      child: Text("Selesai"),
+                                      }
+                                    )
+                                    :
+                                    SizedBox(),
+                                    !task.finished.contains(item['task_id']) 
+                                    ?
+                                    IconButton(
+                                      icon: const Icon(Icons.logout),
                                       onPressed: () {
                                         final limit = DateTime.parse(
                                           "${item['date']} 00:00:00",
@@ -240,35 +237,23 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                               duration: Duration(seconds: 2),
                                             ),
                                           );
-                                        } else {
-                                          if (task.finished.contains(
-                                            item['task_id'],
-                                          )) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'tugas ini sudah selesai',
-                                                ),
-                                                backgroundColor: Colors.blue,
-                                                duration: Duration(seconds: 2),
-                                              ),
-                                            );
-                                          } else {
-                                            Navigator.pushNamed(
-                                              context,
-                                              '/task_end',
-                                              arguments: {
-                                                'task_id': item['task_id'],
-                                              },
-                                            );
-                                          }
+                                        } 
+                                        else {
+                                          Navigator.pushNamed(
+                                            context,
+                                            '/task_end',
+                                            arguments: {
+                                              'task_id': item['task_id'],
+                                            },
+                                          );
                                         }
                                       },
-                                    ),
-                                    TextButton(
-                                      child: Text("Edit"),
+                                    )
+                                    :
+                                    SizedBox(),
+                                    IconButton(
+                                      color:task.finished.contains(item['task_id']) ? Colors.white : Colors.black,
+                                      icon: const Icon(Icons.edit),
                                       onPressed: () {
                                         final limit = DateTime.parse(
                                           "${item['date']} 00:00:00",
@@ -297,7 +282,7 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                           );
                                         }
                                       },
-                                    ),
+)
                                   ],
                                 ),
                               );

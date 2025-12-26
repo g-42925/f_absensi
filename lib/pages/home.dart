@@ -116,8 +116,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                   ),
                 ],
               ),
-              backgroundColor: Color(0xFFF5DEB3),
-              elevation: 0,
+  backgroundColor: Color(0xFFE5E7EB),              elevation: 0,
               actions: [
                 Padding(
                   padding: EdgeInsets.all(8.0),
@@ -134,7 +133,14 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
             body: Container(
               height: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5DEB3),
+                gradient:LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    Color(0xFFF3F4F6), // gray-100
+    Color(0xFFE5E7EB), // gray-200
+  ],
+),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: SingleChildScrollView(
@@ -401,41 +407,21 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                             icon: Icons.work,
                             label: 'Tugas',
                             onPressed: () {
-                              Navigator.pushNamed(context, '/task');
+                              Navigator.pushNamed(
+                                context,
+                                '/task',
+                                arguments: {'csh': false},
+                              );
                             },
                           ),
                           IconLabel(
                             icon: Icons.logout,
-                            label: 'Checkout',
+                            label: 'Check-out',
                             onPressed: () {
-                              if (DateTime.now().isBefore(makeLimit(schedule.finish.split(':'),config.coLimit))) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "Belum bisa absen pulang sekarang",
-                                    ),
-                                    duration: Duration(
-                                        seconds: 2,
-                                    ), // lama tampil
-                                    backgroundColor:
-                                    Colors.blue, // warna background
-                                  ),
-                                );
-                              } 
-                              else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "Kamu sudah tidak bisa absen pulang",
-                                    ),
-                                    duration: Duration(
-                                      seconds: 2,
-                                    ), // lama tampil
-                                    backgroundColor:
-                                        Colors.blue, // warna background
-                                  ),
-                                );
-                              }
+                              Navigator.pushNamed(
+                                context, '/signout',
+                                arguments: {'csh': false},
+                              );
                             },
                           ),
                         ],
@@ -568,8 +554,8 @@ class IconLabel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            backgroundColor: Colors.teal.shade50,
-            child: Icon(icon, color: Colors.teal),
+            backgroundColor: Colors.black,
+            child: Icon(icon, color: Colors.white),
           ),
           const SizedBox(height: 4),
           Text(
