@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/global_state.dart';
+import '../providers/location_provider.dart';
 
 class MyHomePage extends ConsumerStatefulWidget {
   const MyHomePage({super.key});
@@ -39,7 +40,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
       now.day,
       param.hour,
       param.minute,
-    ).subtract(Duration(hours: 1));
+    );
   }
 
   Widget SplashScreen(loggedIn) {
@@ -96,6 +97,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     final status = globalState.status;
     final auth = globalState.auth;
     final config = globalState.config;
+    final breakInfo = globalState.breakInfo;
     final breakStartTime = auth.loggedIn ? schedule.breakStart : "00:00";
     final breakStart = DateFormat("HH:mm").parse(breakStartTime);
     final pp = globalState.other.fotoPegawai;
@@ -276,6 +278,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                       0,
                                     ).subtract(Duration(minutes: 60)),
                                   )) {
+                                    ref.refresh(locationProvider);
                                     Navigator.pushNamed(
                                       context,
                                       '/signin',
@@ -311,7 +314,8 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                     ),
                                   );
                                 }
-                              } else {
+                              } 
+                              else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text("Kamu sudah absen"),
@@ -329,21 +333,29 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                             icon: Icons.local_cafe,
                             label: 'Istirahat',
                             onPressed: () {
-                              if (DateTime.now().isAfter(
-                                makeTime(breakStart),
-                              )) {
-                                Navigator.pushNamed(context, '/break');
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("Belum waktunya istirahat"),
-                                    duration: Duration(
-                                      seconds: 2,
-                                    ), // lama tampil
-                                    backgroundColor:
-                                        Colors.blue, // warna background
-                                  ),
-                                );
+                              print(makeTime(breakStart));
+                              if(!breakInfo.onBreak){
+                                if (DateTime.now().isAfter(
+                                  makeTime(breakStart),
+                                )) {
+                                  ref.refresh(locationProvider);
+                                  Navigator.pushNamed(context, '/break');
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Belum waktunya istirahat"),
+                                      duration: Duration(
+                                        seconds: 2,
+                                      ), // lama tampil
+                                      backgroundColor:
+                                          Colors.blue, // warna background
+                                    ),
+                                  );
+                                }
+                              }
+                              else{
+                                ref.refresh(locationProvider);
+                                Navigator.pushNamed(context, '/breakend');
                               }
                             },
                           ),
@@ -418,6 +430,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                             icon: Icons.logout,
                             label: 'Check-out',
                             onPressed: () {
+                              ref.refresh(locationProvider);
                               Navigator.pushNamed(
                                 context, '/signout',
                                 arguments: {'csh': false},
@@ -433,37 +446,45 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                           color: const Color(0xFFD1FFDC), // Hijau muda
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    "Ringkasan Kehadiran",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green,
+                        child: GestureDetector(
+                          onTap:(){
+                            Navigator.pushNamed(
+                              context, '/log',
+                              arguments: {'csh': false},
+                            );                            
+                          },
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      "Ringkasan Kehadiran",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    "Periksa kinerja rekap Anda bulan ini",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black54,
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Periksa kinerja rekap Anda bulan ini",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black54,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            Image.asset(
-                              'assets/ilustrasi.png', // ganti dengan path gambar kamu
-                              height: 80,
-                            ),
-                          ],
-                        ),
+                              Image.asset(
+                                'assets/ilustrasi.png', // ganti dengan path gambar kamu
+                                height: 80,
+                              ),
+                            ],
+                          ),
+                        ) 
                       ),
                       SizedBox(height: 16),
                       SizedBox(

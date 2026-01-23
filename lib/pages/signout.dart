@@ -16,15 +16,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../env/env.dart';
 import '../providers/global_state.dart';
+import '../providers/location_provider.dart';
+
 
 class SignOutPage extends ConsumerStatefulWidget {
   final CameraDescription camera;
-  final Future<Map<String, double>> coord;
 
-  const SignOutPage({super.key, required this.camera, required this.coord});
+  const SignOutPage({super.key, required this.camera});
 
-  @override
-  ConsumerState<SignOutPage> createState() => _SignOutPageState();
+  @override ConsumerState<SignOutPage> createState() => _SignOutPageState();
 }
 
 class _SignOutPageState extends ConsumerState<SignOutPage> {
@@ -33,7 +33,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
   final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
-  late Future<Position>? position;
+
+  late Future<List<dynamic>> _future;
 
   double latitude = 0;
   double longitude = 0;
@@ -54,25 +55,27 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   String path = "";
 
-  Future<void> requestPositionPermission() async {
-    setState(() {
-      position = null;
-    });
+  Future<dynamic> requestLocation() async{
+    LocationPermission permission = await Geolocator.requestPermission();
+    
+    if(permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
 
-    await Geolocator.requestPermission();
-
-    setState(() {
-      position = Geolocator.getCurrentPosition();
-    });
+    return Geolocator.getCurrentPosition();
   }
 
   @override
   void initState() {
     super.initState();
-    super.initState();
     _controller = CameraController(widget.camera, ResolutionPreset.high);
     _initializeControllerFuture = _controller.initialize();
-    position = Geolocator.getCurrentPosition();
+    _future = Future.wait([
+      _initializeControllerFuture,
+    ])
+    .then((value) {
+      return value;
+    });
   }
 
   bool isOnOffice(double latitude, double longitude) {
@@ -90,8 +93,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   Future<ByteBuffer> captureScreen() async {
     await Future.delayed(Duration(milliseconds: 1000));
-    final boundary =
-        _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    final boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ImageByteFormat.png);
     return byteData?.buffer as ByteBuffer;
@@ -120,12 +122,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
     return DateFormat('dd/MM/yy').format(information);
   }
 
-  void captureAndUpload(
-    double latitude,
-    double longitude,
-    String? pegawaiId,
-    bool csh,
-  ) async {
+  void captureAndUpload(String? pegawaiId,bool csh) async {
     final currentTime = DateTime.now();
 
     final uri = Uri.parse(Env.gMapUrl).replace(
@@ -159,8 +156,6 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       loc['country'] = addressComponents[6]['long_name'];
 
       setState(() {
-        latitude = latitude;
-        longitude = longitude;
         path = img.path;
         preview = true;
       });
@@ -245,7 +240,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
           );
 
           Navigator.pop(context);
-        } else {
+        } 
+        else {
           final response = await supabase
               .from('companies')
               .select()
@@ -422,307 +418,164 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
       if (haversineDistance(lat1, lat2, lon1, lon2) < 200) {
         return locs['locationName'];
-      } else {
-        // setState(() {
-        //   latitude = lat1;
-        //   longitude = lon1;
-        // });
       }
     }
 
     return locationName;
   }
 
-  Widget setCamera(
-    List<Map<String, dynamic>>? list,
-    Other other,
-    DEVICEPST pst,
-    Map<String, double> coord,
-    Map<String, dynamic> args,
-  ) {
+  Widget setCamera(Map<String, dynamic> args){
     final globalState = ref.read(globalStateProvider);
     final schedule = globalState.schedule;
-    final workSystemName = schedule.workSystemName;
+    final other = globalState.other;
+    final workSystemName = globalState.schedule.workSystemName;
+    final _workSystemName = workSystemName != "" ? workSystemName : "Day";
 
-    return position != null
-        ? FutureBuilder(
-            future: position,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  requestPositionPermission();
-                });
-                return Center(child: CircularProgressIndicator());
-              } else {
-                final response = snapshot.data;
-                final latitude = response?.latitude;
-                final longitude = response?.longitude;
-
-                return Stack(
+    return Stack(
+      children: [
+        Center(
+          child: ClipOval(
+            child: SizedBox(
+              width: 300,
+              height: 300,
+              child: CameraPreview(_controller),
+           ),
+          ),
+        ),
+        Positioned(
+          bottom: 110,
+          left: 0,
+          right: 0,
+          child: Container(
+            padding: EdgeInsets.all(12),
+            margin: EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              children: [
+                Row(
                   children: [
-                    Center(
-                      child: ClipOval(
-                        child: SizedBox(
-                          width: 300,
-                          height: 300,
-                          child: CameraPreview(_controller),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 110,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: EdgeInsets.all(12),
-                        margin: EdgeInsets.symmetric(horizontal: 20),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today, size: 18),
-                                SizedBox(width: 8),
-                                Text(
-                                  "$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}",
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 18,
-                                  color: Colors.red,
-                                ),
-                                SizedBox(width: 8),
-                                Text(setLocation(latitude!, longitude!)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 20,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        margin: EdgeInsets.all(16), // margin di semua sisi
-                        width: double.infinity, // membuat selebar layar
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: clicked
-                                ? Colors.red
-                                : Colors.green[600], // hijau gelap
-                            padding: EdgeInsets.symmetric(
-                              vertical: 16,
-                            ), // tinggi button
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              clicked = true;
-                            });
-                            captureAndUpload(
-                              latitude,
-                              longitude,
-                              other.pegawaiId,
-                              args['csh'],
-                            );
-                          },
-                          child: Text(
-                            "Selesai",
-                            style: TextStyle(
-                              color: Colors.white, // warna teks putih
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    Icon(Icons.calendar_today, size: 18),
+                    SizedBox(width: 8),
+                    Text("${_workSystemName} - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}"),
                   ],
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                        Icons.location_on,
+                        size: 18,
+                        color: Colors.red,
+                    ),
+                    SizedBox(width: 8),
+                    Text(setLocation(latitude,longitude!)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 20,
+          left: 0,
+          right: 0,
+          child: Container(
+            margin: EdgeInsets.all(16), // margin di semua sisi
+            width: double.infinity, // membuat selebar layar
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: clicked ? Colors.red : Colors.green[600],
+                padding: EdgeInsets.symmetric(vertical: 16),
+              ),
+              onPressed: () {
+                setState(() {
+                    clicked = true;
+                });
+                captureAndUpload(
+                  other.pegawaiId,
+                  args['csh'],
                 );
-
-                // return Container(
-                //   margin: EdgeInsets.symmetric(horizontal: 16),
-                //   child: Column(
-                //     children: [
-                //       DropdownMenu<String>(
-                //         width: MediaQuery.of(context).size.width - 32,
-                //         hintText: "Pilih lokasi pulang",
-                //         dropdownMenuEntries: [
-                //           DropdownMenuEntry(
-                //             value: '${pst.lat}/${pst.lon}',
-                //             label: 'Lokasi yang sama',
-                //           ),
-                //           DropdownMenuEntry(
-                //             value: '${coord['lat']}/${coord['lon']}',
-                //             label: 'Lokasi lain',
-                //           ),
-                //         ],
-                //         onSelected: (value) async {
-                //           if (value == '${pst.lat}/${pst.lon}') {
-                //             final lat1 = pst.lat;
-                //             final lon1 = pst.lon;
-                //             if (haversineDistance(
-                //                   lat1,
-                //                   latitude,
-                //                   lon1,
-                //                   longitude,
-                //                 ) >
-                //                 100) {
-                //               showModalBottomSheet(
-                //                 context: context,
-                //                 isScrollControlled:
-                //                     true, // supaya bisa atur tinggi
-                //                 shape: const RoundedRectangleBorder(
-                //                   borderRadius: BorderRadius.vertical(
-                //                     top: Radius.circular(20),
-                //                   ),
-                //                 ),
-                //                 builder: (context) {
-                //                   return FractionallySizedBox(
-                //                     heightFactor: 0.5, // setengah layar
-                //                     child: Padding(
-                //                       padding: const EdgeInsets.all(20),
-                //                       child: Column(
-                //                         mainAxisAlignment:
-                //                             MainAxisAlignment.center,
-                //                         children: [
-                //                           const Icon(
-                //                             Icons.error_outline,
-                //                             color: Colors.red,
-                //                             size: 60,
-                //                           ),
-                //                           const SizedBox(height: 20),
-                //                           const Text(
-                //                             'Lokasi tidak tersedia untuk dipilih',
-                //                             textAlign: TextAlign.center,
-                //                             style: TextStyle(
-                //                               fontSize: 20,
-                //                               fontWeight: FontWeight.bold,
-                //                             ),
-                //                           ),
-                //                           const SizedBox(height: 8),
-                //                           const Text(
-                //                             'Kamu berada terlalu jauh dari lokasi yang dipilih',
-                //                             textAlign: TextAlign.center,
-                //                             style: TextStyle(
-                //                               fontSize: 16,
-                //                               color: Colors.black54,
-                //                             ),
-                //                           ),
-                //                         ],
-                //                       ),
-                //                     ),
-                //                   );
-                //                 },
-                //               );
-                //               controller.clear();
-                //               selectedValue = "";
-                //             } else {
-                //               controller.text = "Lokasi yang sama";
-                //               selectedValue = value.toString();
-                //             }
-                //           } else {
-                //             controller.text = "Lokasi yang lain";
-                //             selectedValue = value.toString();
-                //           }
-                //         },
-                //       ),
-                //       SizedBox(height: 16),
-                //       Stack(
-                //         children: [
-                //           ClipRRect(
-                //             borderRadius: BorderRadius.circular(8),
-                //             child: CameraPreview(_controller),
-                //           ),
-                //           Positioned(
-                //             bottom: 20,
-                //             width: MediaQuery.of(context).size.width - 32,
-                //             child: Padding(
-                //               padding: EdgeInsetsGeometry.all(16),
-                //               child: ElevatedButton.icon(
-                //                 onPressed: () async {
-                //                   captureAndUpload(other.pegawaiId);
-                //                 },
-                //                 icon: const Icon(
-                //                   Icons.login,
-                //                   size: 18,
-                //                   color: Colors.white,
-                //                 ),
-                //                 label: const Text(
-                //                   'Presensi pulang',
-                //                   style: TextStyle(
-                //                     color: Color.fromARGB(255, 158, 133, 133),
-                //                     fontSize: 14,
-                //                     fontWeight: FontWeight.w500,
-                //                   ),
-                //                 ),
-                //                 style: ElevatedButton.styleFrom(
-                //                   backgroundColor: Colors.red, // hijau tosca
-                //                   padding: const EdgeInsets.symmetric(
-                //                     horizontal: 20,
-                //                     vertical: 12,
-                //                   ),
-                //                   shape: RoundedRectangleBorder(
-                //                     borderRadius: BorderRadius.circular(8),
-                //                   ),
-                //                   elevation: 0, // tanpa shadow
-                //                 ),
-                //               ),
-                //             ),
-                //           ),
-                //         ],
-                //       ),
-                //     ],
-                //   ),
-                // );
-              }
-              return SizedBox();
-            },
-          )
-        : SizedBox();
+              },
+              child: Text(
+                "Selesai",
+                 style: TextStyle(
+                  color: Colors.white, // warna teks putih
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );   
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final globalState = ref.read(globalStateProvider);
-    final other = globalState.other;
-    final position = globalState.position;
-    final location = globalState.location;
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-
-    return Scaffold(
-      appBar: !preview
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-              ),
-            )
-          : null,
-      body: FutureBuilder(
-        future: Future.wait([_initializeControllerFuture, widget.coord]),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            final result = snapshot.data as List;
-            return preview
-                ? setPreview()
-                : setCamera(location.list, other, position, result[1], args);
-          } else {
-            return Center(child: CircularProgressIndicator());
-          }
-        },
+  @override Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final locs = ref.watch(locationProvider);
+    
+    return locs.when(
+			loading: () => const Scaffold(
+        body: Center(child: Text('please wait')),
       ),
-    );
+			error: (err, _) => Scaffold(
+        body: Center(child: Text('Gagal mengambil lokasi\n$err')),
+      ),
+			data: (position){
+				WidgetsBinding.instance.addPostFrameCallback((_) {
+          if(mounted){
+					  setState(() {
+              latitude = position.latitude;
+              longitude = position.longitude;
+            });
+					}
+        });
+        return locs.when(
+			    loading: () => const Scaffold(
+            body: Center(child: Text('please wait')),
+          ),
+			    error: (err, _) => Scaffold(
+            body: Center(child: Text('Gagal mengambil lokasi\n$err')),
+          ),
+		 	    data: (position){
+				    WidgetsBinding.instance.addPostFrameCallback((_) {
+              if(mounted){
+					      setState(() {
+                  latitude = position.latitude;
+                  longitude = position.longitude;
+                });
+				     	}
+            });
+
+            return Scaffold(
+              appBar: !preview
+              ? 
+              AppBar(
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                )
+              : 
+              null,
+              body: FutureBuilder(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                      return preview ? setPreview() : setCamera(args);
+                  }  
+                  else {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                },
+              ),
+            );
+	        }
+		    );
+	    }
+		);
   }
 }

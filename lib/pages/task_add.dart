@@ -99,7 +99,6 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Pilih tanggal
-              Text("Tanggal"),
               SizedBox(height: 8),
               InkWell(
                 onTap: () => _pickDate(context),

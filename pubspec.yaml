@@ -54,7 +54,9 @@ dependencies:
   flutter_image_compress: ^2.0.4
   rename: ^3.1.0
   flutter_datetime_picker_plus: ^2.0.2
-  
+  audioplayers: ^6.0.0
+  shared_preferences: ^2.1.0
+  google_mlkit_face_detection: ^0.11.0
 
 dev_dependencies:
   flutter_test:
@@ -98,6 +100,7 @@ flutter:
     - assets/ilustrasi.png
     - assets/enjoy.png
     - assets/symbols/
+    - assets/alarm.mp3
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

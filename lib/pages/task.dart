@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/global_state.dart';
+import '../providers/location_provider.dart';
 import '../env/env.dart';
 import 'dart:async';
 
@@ -188,13 +189,14 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                     IconButton(
                                       icon: const Icon(Icons.login),
                                       onPressed: () {
-                                        final limit = DateTime.parse(
-                                          "${item['date']} 00:00:00",
-                                        ).add(Duration(days: 1));
-                                        if (DateTime.now().isAfter(limit)) {
+                                        final submittedAt = DateTime.parse(item['created_at']);
+                                        final deadline = submittedAt.add(const Duration(hours: 6));
+
+                                        if(DateTime.now().isAfter(deadline)) {
                                           ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
+                                            context
+                                          )
+                                          .showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                 'Form tugas ini sudah kadaluwarsa',
@@ -205,6 +207,7 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                           );
                                         } 
                                         else {
+                                          ref.refresh(locationProvider);
                                           Navigator.pushNamed(
                                             context,
                                             '/task_start',
@@ -222,13 +225,16 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                     IconButton(
                                       icon: const Icon(Icons.logout),
                                       onPressed: () {
-                                        final limit = DateTime.parse(
-                                          "${item['date']} 00:00:00",
-                                        ).add(Duration(days: 1));
-                                        if (DateTime.now().isAfter(limit)) {
+                                        
+                                        final submittedAt = DateTime.parse(item['created_at']);
+                                        final deadline = submittedAt.add(const Duration(hours: 6));
+                                      
+
+                                        if(DateTime.now().isAfter(deadline)) {
                                           ScaffoldMessenger.of(
                                             context,
-                                          ).showSnackBar(
+                                          )
+                                          .showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                 'Form tugas ini sudah kadaluwarsa',
@@ -239,6 +245,7 @@ class _TaskPageState extends ConsumerState<TaskPage> {
                                           );
                                         } 
                                         else {
+                                          ref.refresh(locationProvider);
                                           Navigator.pushNamed(
                                             context,
                                             '/task_end',

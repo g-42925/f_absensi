@@ -1,3 +1,4 @@
+import 'package:f_absensi/pages/log.dart';
 import 'package:f_absensi/pages/activity.dart';
 import 'package:f_absensi/pages/break.dart';
 import 'package:f_absensi/pages/break_end.dart';
@@ -44,19 +45,27 @@ import './pages/permission_handle.dart';
 import './pages/short_permission.dart';
 import './pages/calendar.dart';
 import './pages/long_permission.dart';
+import 'dart:math';
+import 'package:audioplayers/audioplayers.dart';
+import '../providers/global_state.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const int CURRENT_VERSION = 42; // naikkan setiap release
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final cameras = await availableCameras();
 
-  //await initializeDateFormatting('az');
-
   final storageDirectory = await getApplicationDocumentsDirectory();
+
 
   final storage = await HydratedStorage.build(
     storageDirectory: storageDirectory,
   );
+
+	final prefs = await SharedPreferences.getInstance();
+  final lastVersion = prefs.getInt('app_version') ?? 0;
 
   await Supabase.initialize(url: Env.supabaseUrl, anonKey: Env.supabaseKey);
 
@@ -64,30 +73,85 @@ void main() async {
     (cam) => cam.lensDirection == CameraLensDirection.front,
   );
 
+	if (lastVersion < CURRENT_VERSION) {
+    await storage.clear();     
+		prefs.setInt('app_version', CURRENT_VERSION);
+  }
+
   HydratedRiverpod.initialize(storage: storage);
 
-  runApp(ProviderScope(child: MyApp(camera: camera)));
+	try {
+    runApp(
+      ProviderScope(
+        child: MyApp(camera: camera)
+      )
+    );
+  } 
+	catch(e) {
+    runApp(
+      MaterialApp(
+        home: Center(
+          child: Text(
+            'Terjadi kesalahan, silakan keluar daro aplikasi'
+          )
+        )
+      )
+    );
+  }
+
+
+  runApp(
+    ProviderScope(
+      child: MyApp(camera: camera)
+    )
+  );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerStatefulWidget {
   final CameraDescription camera;
 
-  Future<Map<String, double>> getLocation(BuildContext context) async {
+	const MyApp({super.key, required this.camera});
+
+  @override ConsumerState<MyApp> createState() => _MyAppState();
+
+}
+
+class _MyAppState extends ConsumerState<MyApp>{
+  late Future<List<dynamic>> _future;
+  double latitude = 0;
+  double longitude = 0;
+
+
+	Future<Map<String, double>> getLocation(BuildContext context) async {
     try {
       Position position = await Geolocator.getCurrentPosition();
       return {'lat': position.latitude, 'lon': position.longitude};
-    } catch (e) {
+    } 
+    catch (e) {
       await Geolocator.requestPermission();
       Position position = await Geolocator.getCurrentPosition();
       return {'lat': position.latitude, 'lon': position.longitude};
     }
   }
 
-  const MyApp({super.key, required this.camera});
 
-  Map<String, WidgetBuilder> createRoute(BuildContext context) {
+	@override
+  void initState() {
+    super.initState();
+    // _future = Future.wait([
+    //   requestLocation(),
+    // ])
+    // .then((value) {
+    //   latitude = value[0].latitude;
+    //   longitude = value[0].longitude;
+    //   return value;
+    // });
+  }
+
+	Map<String, WidgetBuilder> createRoute(BuildContext context) {
     return {
       '/': (_) => MyHomePage(),
+      '/log': (_) => LogPage(),
       '/half_leave': (_) => HalfLeavePage(),
       '/claim': (_) => ClaimPage(),
       '/make_task': (_) => TaskAddPage(),
@@ -95,14 +159,14 @@ class MyApp extends StatelessWidget {
       '/task_edit': (_) => TaskEditPage(),
       '/exception_edit': (_) => ExceptionEditPage(),
       '/task_start': (_) =>
-          TaskStartPage(camera: camera, coord: getLocation(context)),
+          TaskStartPage(camera: widget.camera, coord: getLocation(context)),
       '/task_end': (_) =>
-          TaskEndPage(camera: camera, coord: getLocation(context)),
-      '/task': (_) => TaskPage(camera: camera, coord: getLocation(context)),
+          TaskEndPage(camera: widget.camera, coord: getLocation(context)),
+      '/task': (_) => TaskPage(camera: widget.camera, coord: getLocation(context)),
       '/task_filter': (_) =>
-          TaskFilterPage(camera: camera, coord: getLocation(context)),
+          TaskFilterPage(camera: widget.camera, coord: getLocation(context)),
       '/done_task': (_) =>
-          DoneTaskPage(camera: camera, coord: getLocation(context)),
+          DoneTaskPage(camera: widget.camera, coord: getLocation(context)),
 
       '/employees': (_) => EmployeesPage(),
       '/notification': (_) => NotificationPage(),
@@ -115,14 +179,13 @@ class MyApp extends StatelessWidget {
       '/makeexception': (_) => ExceptionAddPage(),
       '/break': (_) => BreakPage(coord: getLocation(context)),
       '/overwork': (_) =>
-          OverWorkPage(camera: camera, coord: getLocation(context)),
+          OverWorkPage(camera: widget.camera, coord: getLocation(context)),
       '/makeoverwork': (_) => OverWorkAddPage(),
       '/overwork_start': (_) =>
-          OverWorkStartPage(camera: camera, coord: getLocation(context)),
+          OverWorkStartPage(camera: widget.camera, coord: getLocation(context)),
       '/overwork_end': (_) =>
-          OverWorkEndPage(camera: camera, coord: getLocation(context)),
-      '/breakend': (_) =>
-          BreakEndPage(camera: camera, coord: getLocation(context)),
+          OverWorkEndPage(camera: widget.camera, coord: getLocation(context)),
+      '/breakend': (_) => BreakEndPage(camera: widget.camera),
       '/leave': (_) => LeavePage(),
       '/leaveapply': (_) => LeaveApplyPage(),
       '/login': (_) => LoginPage(),
@@ -131,9 +194,8 @@ class MyApp extends StatelessWidget {
       '/short_permission': (_) => ShortPermissionPage(),
       '/long_permission': (_) => LongPermissionPage(),
       '/permission_success': (_) => PermissionSuccessPage(),
-      '/signin': (_) => SignInPage(camera: camera, coord: getLocation(context)),
-      '/signout': (_) =>
-          SignOutPage(camera: camera, coord: getLocation(context)),
+      '/signin': (_) => SignInPage(camera: widget.camera),
+      '/signout': (_) => SignOutPage(camera: widget.camera),
       '/permission_handle': (_) => PermissionHandlePage(
         createdAt: "",
         duration: 0,
@@ -144,10 +206,10 @@ class MyApp extends StatelessWidget {
         catatan: "",
         requestIzinId: "",
       ),
-    };
+    };	
   }
 
-  @override
+	@override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
@@ -157,4 +219,5 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
+
 }

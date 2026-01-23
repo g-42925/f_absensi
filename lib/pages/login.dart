@@ -85,12 +85,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         name: responseBody['result']['company_name'] ?? '',
         logo: responseBody['result']['logo'] ?? '',
         address: responseBody['result']['address'] ?? '',
-        salaryDate: int.parse(responseBody['result']['salary_date']),
+        salaryDate: int.tryParse(responseBody['result']['salary_date']?.toString() ?? '0') ?? 0,
       );
 
       final Schedule schedule = (
         start: start ?? '',
-        nextStart: nextStart,
+        nextStart: nextStart ?? '',
         finish: finish ?? '',
         breakStart: breakStart,
         breakFinish: breakEnd,
@@ -98,15 +98,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         workSystemName: workSystemName,
       );
 
+      final locationsRaw = responseBody['result']['locations'] ?? [];
+
       final Iterable<Map<String, dynamic>> location =
-          (responseBody['result']['locations'] as List).map((l) {
-            return {
-              'lat': l['garis_lintang'] ?? '',
-              'lon': l['garis_bujur'] ?? '',
-              'address': l['alamat_lokasi'] ?? '',
-              'locationName': l['nama_lokasi'] ?? '',
-            };
-          });
+          (locationsRaw as List).map((l) {
+        return {
+          'lat': l['garis_lintang']?.toString() ?? '',
+          'lon': l['garis_bujur']?.toString() ?? '',
+          'address': l['alamat_lokasi'] ?? '',
+          'locationName': l['nama_lokasi'] ?? '',
+        };
+      });
 
       final Other other = (
         pegawaiId: responseBody['result']['pegawai_id'] ?? '',
@@ -119,9 +121,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
 
       final Holiday holiday = (
-        holiday: responseBody['result']['holiday'] as bool,
+        holiday: responseBody['result']['holiday'] ?? false,
         workDay: workDay,
       );
+
 
       final Status status = (signedIn: false, signedOut: false);
 
@@ -134,9 +137,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       final ffocia = responseBody['result']['ffocia'] == "1" ? true : false;
       final ffocoa = responseBody['result']['ffocoa'] == "1" ? true : false;
-      final coLimit = int.parse(responseBody['result']['co_limit']);
-      final ciLimit = int.parse(responseBody['result']['ci_limit']);
-      final tolerance = int.parse(responseBody['result']['tolerance']);
+
+      final coLimit = int.tryParse(responseBody['result']['co_limit']?.toString() ?? '0') ?? 0;
+
+      final ciLimit = int.tryParse(responseBody['result']['ci_limit']?.toString() ?? '0') ?? 0;
+
+      final tolerance = int.tryParse(responseBody['result']['tolerance']?.toString() ?? '0') ?? 0;
+
 
       final Config config = (
         ffocia: ffocia,
@@ -164,6 +171,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         task: (started: [], finished: []),
         exception: (list: []),
         csh: (allowed: false),
+        reminder: (lastLat:0,lastLon:0)
       ));
 
       Navigator.pushReplacementNamed(context, '/');

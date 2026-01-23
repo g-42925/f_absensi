@@ -43,6 +43,7 @@ typedef Location = ({List<Map<String, dynamic>> list});
 typedef DEVICEPST = ({double lat, double lon});
 typedef Coordinate = ({double lat, double lon});
 typedef Permission = ({int id});
+typedef Reminder = ({double lastLat, double lastLon});
 
 typedef Other = ({
   String pegawaiId,
@@ -72,6 +73,7 @@ typedef GlobalState = ({
   Task task,
   Exception exception,
   Csh csh,
+  Reminder reminder
 });
 
 final globalStateProvider =
@@ -116,6 +118,7 @@ final globalStateProvider =
         task: (started: [], finished: []),
         exception: (list: []),
         csh: (allowed: false),
+        reminder:(lastLat:0,lastLon:0)
       ));
     });
 
@@ -126,7 +129,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
     state = param;
   }
 
-  startTask(String id) {
+  startTask(String id,double lat, double lon) {
     final newStartedTaskList = [...state.task.started, id];
     final finishedTaskList = state.task.finished;
 
@@ -148,6 +151,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: (started: newStartedTaskList, finished: finishedTaskList),
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder: (lastLat:lat,lastLon:lon)
     );
   }
 
@@ -173,6 +177,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: (started: startedTaskList, finished: newFinishedTaskList),
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:(lastLat:0,lastLon:0)
     );
   }
 
@@ -197,6 +202,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -241,6 +247,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: (started: [], finished: []),
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -263,6 +270,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -285,6 +293,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -307,6 +316,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -329,6 +339,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: false),
+      reminder:state.reminder
     );
   }
 
@@ -361,6 +372,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -396,6 +408,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -423,6 +436,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -447,6 +461,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -471,6 +486,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -495,6 +511,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -519,6 +536,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: (list: newExceptionList),
       csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -541,6 +559,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
     final taskJson = json['task'] ?? {};
     final exceptionJson = json['exception'] ?? {};
     final cshJson = json['csh'] ?? {};
+    final reminderJson = json['reminder'] ?? {};
 
     return (
       auth: (
@@ -613,6 +632,10 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       ),
       exception: (list: List<String>.from(exceptionJson['list'] ?? [])),
       csh: (allowed: cshJson['allowed'] as bool),
+      reminder:(
+        lastLat:reminderJson['lastLat'] as double,
+        lastLon:reminderJson['lastLon'] as double
+      )
     );
   }
 
@@ -672,6 +695,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       'task': {'started': state.task.started, 'finished': state.task.finished},
       'exception': {'list': state.exception.list},
       'csh': {'allowed': state.csh.allowed},
+      'reminder':{'lastLat':state.reminder.lastLat,'lastLon':state.reminder.lastLon}
     };
   }
 }
