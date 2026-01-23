@@ -210,7 +210,6 @@ class _PermissionPageState extends ConsumerState<PermissionPage>
           bottom: TabBar(
             tabs: [
               Tab(text: 'Izin Jam'),
-              Tab(text: 'Izin hari'),
             ],
             controller: _tabController,
           ),

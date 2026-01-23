@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:ui';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
@@ -10,15 +12,16 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:http_parser/http_parser.dart'; // <-- MediaType
 import '../env/env.dart';
 import '../providers/global_state.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import '../providers/location_provider.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
   final CameraDescription camera;
-  final Future<Map<String, double>> coord;
 
-  const SignInPage({super.key, required this.camera, required this.coord});
+  const SignInPage({super.key, required this.camera});
 
   @override
   ConsumerState<SignInPage> createState() => _SignInPageState();
@@ -30,8 +33,25 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
+  late Future<List<dynamic>> _future;
+
+  final faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.fast,
+    ),
+  );
+
+	
+  double latitude = 0;
+  double longitude = 0;
+
+
+
+  bool clicked = false;
 
   final controller = TextEditingController();
+
+  String locationName = 'Anda berada di luar area presensi';
 
   String selectedValue = "";
 
@@ -44,11 +64,35 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   String path = "";
 
+  Future<dynamic> requestLocation() async{
+    LocationPermission permission = await Geolocator.requestPermission();
+    
+    if(permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    return Geolocator.getCurrentPosition();
+  }
+
+	@override
+  void dispose() {
+    _controller.dispose();
+    faceDetector.close();
+    super.dispose(); 
+  }
+
   @override
   void initState() {
     super.initState();
     _controller = CameraController(widget.camera, ResolutionPreset.high);
     _initializeControllerFuture = _controller.initialize();
+    
+    _future = Future.wait([
+      _initializeControllerFuture,
+    ])
+    .then((value) {
+      return value;
+    });
   }
 
   double toRad(double degree) {
@@ -83,33 +127,66 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     return byteData?.buffer as ByteBuffer;
   }
 
-  void captureAndUpload(String? pegawaiId) async {
-    final xLocation = await widget.coord;
+  bool isOnOffice(double latitude, double longitude) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
 
-    await _initializeControllerFuture;
+    return locations.any((locs) {
+      final lat2 = double.parse(locs['lat']);
+      final lon2 = double.parse(locs['lon']);
+      final distance = haversineDistance(latitude, lat2, longitude, lon2);
+
+      return distance <= 50;
+    });
+  }
+
+  String setLocation(double latitude, double longitude) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
+
+    for (var locs in locations) {
+      final lat1 = latitude;
+      final lat2 = double.parse(locs['lat']);
+      final lon1 = longitude;
+      final lon2 = double.parse(locs['lon']);
+
+      if(haversineDistance(lat1, lat2, lon1, lon2) < 200) {
+        return locs['locationName'];
+      }
+    }
+
+    return locationName;
+  }
+
+  void captureAndUpload(String? pegawaiId,bool ffocia) async {
+    final supabase = Supabase.instance.client;
     final currentTime = DateTime.now();
-    final coord = selectedValue.split('/');
 
     final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {
-        'latlng': '${coord[0]},${coord[1]}',
-        'key': Env.gMapKey,
-      },
+      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
     );
 
     try {
-      final lt = xLocation['lat'] as double;
-      final ln = xLocation['lon'] as double;
-      final sLoc = selectedValue.split('/');
+      final state = ref.read(globalStateProvider);
+      final other = state.other;
+      final company = state.company;
       final img = await _controller.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
       final target = response['results'][0];
       final addressComponents = target['address_components'];
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/signin");
+      final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
+
       final formattedTime = DateFormat("HH:mm").format(currentTime);
       final headers = {"Content-type": "application/json"};
+      final now = DateTime.now(); // ambil tanggal sekarang
+      final formatted = DateFormat('yyyy-MM-dd').format(now);
+      final formattedSecond = DateFormat('HH:mm:ss').format(now);
+      final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+
+      final inputImage = InputImage.fromFilePath(img.path);
 
       loc['address'] = target['formatted_address'];
       loc['subDistrict'] = addressComponents[3]['short_name'];
@@ -123,55 +200,243 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
       final result = await captureScreen();
 
-      print("test before upload");
+      final bytes = result.asUint8List();
 
-      await supabase.storage
-          .from('storage')
-          .uploadBinary(fileName, result.asUint8List());
+      final faces = await faceDetector.processImage(inputImage);
 
-      print("test after upload");
+      final compressed = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 1080,
+        minHeight: 1920,
+        quality: 50,
+        format: CompressFormat.jpeg, // penting, karena png lebih besar
+      );
 
-      final publicUrl = supabase.storage.from('storage').getPublicUrl(fileName);
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8), // ubah sesuai selera
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text('submit is loading, please wait...'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final request = http.MultipartRequest('POST', uploadUrl);
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file', // field name
+          compressed, // file data
+          filename: fileName,
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+
+      final streamedResponse = await request.send();
+
+      if (streamedResponse.statusCode != 200) {}
+
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      final uploadResponse = responseBody;
 
       final params = {
         "is_status": "hhk",
         "jam_masuk": formattedTime,
-        "foto_absen_masuk": publicUrl,
-        "point_latitude": xLocation['lat'],
-        "point_longitude": xLocation['lon'],
-        "latitude_masuk": sLoc[0],
-        "longitude_masuk": sLoc[1],
+        "foto_absen_masuk": uploadResponse,
+        "point_latitude": latitude,
+        "point_longitude": longitude,
+        "latitude_masuk": latitude,
+        "longitude_masuk": longitude,
         "pegawai_id": pegawaiId,
       };
 
-      final xRequest = await http.post(
-        url,
-        headers: headers,
-        body: jsonEncode(params),
-      );
+      if (ffocia || isOnOffice(latitude, longitude)) {
+        if(faces.length > 0){
+          final xRequest = await http.post(
+            url,
+            headers: headers,
+            body: jsonEncode(params),
+          );
 
-      print(xRequest.body);
+          print(xRequest.body);
 
-      final xResponse = jsonDecode(xRequest.body);
+          final xResponse = jsonDecode(xRequest.body);
 
-      if (!xResponse['success']) {
+          if (!xResponse['success']) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("coba beberapa saat lagi"),
+                duration: Duration(seconds: 4),
+              ),
+            );
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/',
+              (Route<dynamic> route) => false,
+            );
+          } 
+
+          else{
+            final response = await supabase
+              .from('companies')
+              .select()
+              .eq('company_id', company.id)
+              .maybeSingle();
+
+            if (xResponse['late'] as bool) {
+              try {
+                await supabase.from('messages').insert({
+                  'receiver_id': response?['account_id'],
+                  'date': formatted,
+                  'created_at': timestamp,
+                  'image': uploadResponse,
+                  'employee_id': pegawaiId,
+                  'employee_name': other.namaPegawai,
+                  'late': xResponse['late'] as bool,
+                  'late_diff': xResponse['late'] as bool
+                    ? xResponse['late_diff']
+                    : 0,
+                  'action_type': 'melakukan absen masuk',
+                  'action_time': formattedSecond,
+                  'on_office': isOnOffice(latitude, longitude),
+                });
+              } 
+              catch (e) {
+                print(e);
+              }
+            }
+
+            Navigator.of(context).pop();
+
+            ref.read(globalStateProvider.notifier).signIn();
+            ref
+              .read(globalStateProvider.notifier)
+              .setPosition(latitude, longitude);
+
+            (() async {
+              showDialog(
+                context: context,
+                barrierDismissible: true,
+                builder: (_) => Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'you have been checked in',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(width: 5),
+                        Icon(Icons.check_circle, color: Colors.green, size: 28),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+
+              await Future.delayed(Duration(seconds: 1));
+
+              setState(() {
+                latitude = latitude;
+                longitude = longitude;
+                path = img.path;
+                preview = false;
+              });
+
+              Navigator.of(context).pop();
+
+              await Future.delayed(Duration(seconds: 1));
+
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/',
+                (Route<dynamic> route) => false,
+              );
+            })();
+          }
+        }
+        else{
+          Navigator.of(context).pop();
+
+          setState(() {
+            preview = false;
+            clicked = false;
+          });
+
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            isDismissible: true, // bisa ditutup tap di luar
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (context) {
+              return SizedBox(
+                width:double.infinity,
+                child:Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child:Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children:[
+                      Icon(Icons.warning, color: Colors.red, size: 36),
+                      SizedBox(height: 8),
+                      Text(
+                        'Wajah tidak terdeteksi',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Pastikan wajah berada di dalam frame kamera',
+                        textAlign: TextAlign.center,
+                      )
+                    ]
+                  )
+                )
+              );
+            },
+          );
+        }
+      } 
+      else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(xResponse['message']),
+            content: Text("Silahkan ajuan pengecualian"),
             duration: Duration(seconds: 4),
           ),
         );
-      } else {
-        ref.read(globalStateProvider.notifier).signIn();
-        ref.read(globalStateProvider.notifier).setPosition(lt, ln);
-
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/',
+          '/makeexception',
           (Route<dynamic> route) => false,
         );
       }
-    } catch (err) {
+    } 
+    catch (err) {
       print("error");
       print(err);
     }
@@ -197,8 +462,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                     Uri.parse(Env.gStaticMap)
                         .replace(
                           queryParameters: {
-                            'center':
-                                "${selectedValue.split('/')[0]},${selectedValue.split('/')[1]}",
+                            'center': "$latitude,$longitude",
                             'size': '100x200',
                             'zoom': '18',
                             'key': Env.gMapKey,
@@ -231,15 +495,15 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(
-                              selectedValue.split('/')[0],
+                              "$latitude",
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(
-                              selectedValue.split('/')[1],
+                              "$longitude",
                               style: TextStyle(color: Colors.white),
                             ),
                             Text(
-                              getYear(DateTime.now()),
+                              "${getYear(DateTime.now())} ${DateFormat('HH:mm').format(DateTime.now())}",
                               style: TextStyle(color: Colors.white),
                             ),
                           ],
@@ -256,161 +520,138 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     );
   }
 
-  Widget setCamera(List<Map<String, dynamic>>? list, Other other) {
-    final entries = (list ?? []).map((l) {
-      return DropdownMenuEntry(
-        value: '${l['lat']}/${l['lon']}',
-        label: '${l['locationName']}',
-      );
-    }).toList();
+  Widget setCamera(Map<String, dynamic> args) {
+    final globalState = ref.read(globalStateProvider);
+    final schedule = globalState.schedule;
+    final other = globalState.other;
+    final workSystemName = schedule.workSystemName;
 
-    entries.add(DropdownMenuEntry(value: '0/0', label: 'pilih lokasi'));
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          DropdownMenu<String>(
-            width: MediaQuery.of(context).size.width - 32,
-            hintText: "Pilih lokasi kehadiran",
-            controller: controller,
-            dropdownMenuEntries: entries.toList(),
-            onSelected: (value) async {
-              final c = await widget.coord;
-              final lt = double.parse(value?.split('/')[0] as String);
-              final lng = double.parse(value?.split('/')[1] as String);
-              if (haversineDistance(c['lat'], lt, c['lon'], lng) > 200) {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true, // supaya bisa atur tinggi
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                  ),
-                  builder: (context) {
-                    return FractionallySizedBox(
-                      heightFactor: 0.5, // setengah layar
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 60,
-                            ),
-                            const SizedBox(height: 20),
-                            const Text(
-                              'Lokasi tidak tersedia untuk dipilih',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Kamu berada terlalu jauh dari lokasi yang dipilih',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-                controller.clear();
-                selectedValue = "";
-              } else {
-                final lat = value?.split('/')[0] as String;
-                final idx = list?.indexWhere((i) => i['lat'] == lat);
-                final target = list?[idx as int];
-                controller.text = target?['locationName'];
-                selectedValue = "${target?['lat']}/${target?['lon']}";
-              }
-            },
-          ),
-          SizedBox(height: 16),
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: CameraPreview(_controller),
-              ),
-              Positioned(
-                bottom: 20,
-                width: MediaQuery.of(context).size.width - 32,
-                child: Padding(
-                  padding: EdgeInsetsGeometry.all(16),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      captureAndUpload(other.pegawaiId);
-                    },
-                    icon: const Icon(
-                      Icons.login,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'Presensi Masuk',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red, // hijau tosca
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0, // tanpa shadow
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+		return Stack(
+			children: [
+				Center(
+					child: ClipOval(
+						child: SizedBox(
+							width: 300,
+							height: 300,
+							child: CameraPreview(_controller),
+						),
+					),
+				),
+				Positioned(
+					bottom: 110,
+					left: 0,
+					right: 0,
+					child: Container(
+						padding: EdgeInsets.all(12),
+						margin: EdgeInsets.symmetric(horizontal: 20),
+						decoration: BoxDecoration(
+							borderRadius: BorderRadius.circular(8),
+							border: Border.all(color: Colors.grey.shade300),
+						),
+						child: Column(
+							children: [
+								Row(
+									children: [
+										Icon(Icons.calendar_today, size: 18),
+										SizedBox(width: 8),
+										Text("$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}"),
+									],
+								),
+								SizedBox(height: 8),
+								Row(
+									children: [
+										Icon(
+											Icons.location_on,
+											size: 18,
+											color: Colors.red,
+										),
+										SizedBox(width: 8),
+										Text(setLocation(latitude, longitude)),
+									],
+								),
+							],
+						),
+					),
+				),
+				Positioned(
+					bottom: 20,
+					left: 0,
+					right: 0,
+					child: Container(
+						margin: EdgeInsets.all(16), // margin di semua sisi
+						width: double.infinity, // membuat selebar layar
+						child: ElevatedButton(
+							style: ElevatedButton.styleFrom(
+								backgroundColor: clicked ? Colors.red : Colors.green[600], // hijau gelap
+								padding: EdgeInsets.symmetric(vertical: 16), // tinggi button
+							),
+							onPressed: () {
+								setState(() {
+										clicked = true;
+								});
+								captureAndUpload(
+									other.pegawaiId,
+									args['ffocia'] as bool,
+								);
+							},           
+							child: Text(
+								"Masuk",
+								style: TextStyle(
+										color: Colors.white, // warna teks putih
+										fontSize: 16,
+								),
+							),
+						),
+					),
+				),
+			],
+		);
   }
 
   @override
   Widget build(BuildContext context) {
-    final globalState = ref.read(globalStateProvider);
-    final other = globalState.other;
-    final location = globalState.location;
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+		final locs = ref.watch(locationProvider);
 
-    return Scaffold(
-      appBar: !preview
-          ? AppBar(
+		return locs.when(
+			loading: () => const Scaffold(
+        body: Center(child: Text('please wait')),
+      ),
+			error: (err, _) => Scaffold(
+        body: Center(child: Text('Gagal mengambil lokasi\n$err')),
+      ),
+			data: (position){
+				WidgetsBinding.instance.addPostFrameCallback((_) {
+          if(mounted){
+					  setState(() {
+              latitude = position.latitude;
+              longitude = position.longitude;
+            });
+					}
+       });
+
+        return Scaffold(
+          appBar: !preview
+            ? AppBar(
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.pop(context),
               ),
             )
           : null,
-      body: FutureBuilder(
-        future: _initializeControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return preview ? setPreview() : setCamera(location.list, other);
-          } else {
-            return Center(child: CircularProgressIndicator());
-          }
-        },
-      ),
-    );
+          body: FutureBuilder(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                  return preview ? setPreview() : setCamera(args);
+              }  
+              else {
+                return Center(child: CircularProgressIndicator());
+              }
+            },
+          ),
+        );
+	    }
+		);
   }
 }

@@ -8,6 +8,18 @@ typedef Holiday = ({bool holiday, bool workDay});
 typedef Auth = ({bool loggedIn, String date});
 typedef Status = ({bool signedIn, bool signedOut});
 typedef OverWork = ({bool onOverWork});
+typedef Exception = ({List<String> list});
+typedef Csh = ({bool allowed});
+
+typedef Config = ({
+  bool ffocia,
+  bool ffocoa,
+  int coLimit,
+  int ciLimit,
+  int tolerance,
+});
+
+typedef Task = ({List<String> started, List<String> finished});
 
 typedef Company = ({
   String id,
@@ -19,6 +31,7 @@ typedef Company = ({
 
 typedef Schedule = ({
   String start,
+  String nextStart,
   String finish,
   String breakStart,
   String breakFinish,
@@ -30,6 +43,7 @@ typedef Location = ({List<Map<String, dynamic>> list});
 typedef DEVICEPST = ({double lat, double lon});
 typedef Coordinate = ({double lat, double lon});
 typedef Permission = ({int id});
+typedef Reminder = ({double lastLat, double lastLon});
 
 typedef Other = ({
   String pegawaiId,
@@ -55,6 +69,11 @@ typedef GlobalState = ({
   Holiday holiday,
   Break breakInfo,
   OverWork overWork,
+  Config config,
+  Task task,
+  Exception exception,
+  Csh csh,
+  Reminder reminder
 });
 
 final globalStateProvider =
@@ -67,6 +86,7 @@ final globalStateProvider =
         company: (id: '', name: '', logo: '', address: '', salaryDate: 0),
         schedule: (
           start: '',
+          nextStart: '',
           finish: '',
           breakStart: '',
           breakFinish: '',
@@ -88,6 +108,17 @@ final globalStateProvider =
         holiday: (holiday: false, workDay: true),
         breakInfo: (onBreak: false, startFrom: ''),
         overWork: (onOverWork: false),
+        config: (
+          ffocia: false,
+          ffocoa: false,
+          coLimit: 0,
+          ciLimit: 0,
+          tolerance: 0,
+        ),
+        task: (started: [], finished: []),
+        exception: (list: []),
+        csh: (allowed: false),
+        reminder:(lastLat:0,lastLon:0)
       ));
     });
 
@@ -96,6 +127,58 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
 
   login(GlobalState param) {
     state = param;
+  }
+
+  startTask(String id,double lat, double lon) {
+    final newStartedTaskList = [...state.task.started, id];
+    final finishedTaskList = state.task.finished;
+
+    state = (
+      auth: state.auth,
+      status: state.status,
+      company: state.company,
+      schedule: state.schedule,
+      location: state.location,
+      position: state.position,
+      other: state.other,
+      history: state.history,
+      permission: state.permission,
+      coordinate: state.coordinate,
+      holiday: state.holiday,
+      breakInfo: state.breakInfo,
+      overWork: state.overWork,
+      config: state.config,
+      task: (started: newStartedTaskList, finished: finishedTaskList),
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder: (lastLat:lat,lastLon:lon)
+    );
+  }
+
+  taskFinish(String id) {
+    final newFinishedTaskList = [...state.task.finished, id];
+    final startedTaskList = state.task.started;
+
+    state = (
+      auth: state.auth,
+      status: state.status,
+      company: state.company,
+      schedule: state.schedule,
+      location: state.location,
+      position: state.position,
+      other: state.other,
+      history: state.history,
+      permission: state.permission,
+      coordinate: state.coordinate,
+      holiday: state.holiday,
+      breakInfo: state.breakInfo,
+      overWork: state.overWork,
+      config: state.config,
+      task: (started: startedTaskList, finished: newFinishedTaskList),
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:(lastLat:0,lastLon:0)
+    );
   }
 
   addHistory(String id) {
@@ -115,24 +198,56 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
   logout() {
     state = (
+      history: [],
+      permission: (id: 0),
       auth: (loggedIn: false, date: ''),
       status: (signedIn: false, signedOut: false),
-      company: state.company,
-      schedule: state.schedule,
-      location: state.location,
-      position: state.position,
-      other: state.other,
-      history: state.history,
-      permission: state.permission,
-      coordinate: state.coordinate,
-      holiday: state.holiday,
-      breakInfo: state.breakInfo,
-      overWork: state.overWork,
+      company: (id: '', name: '', logo: '', address: '', salaryDate: 0),
+      schedule: (
+        start: '',
+        nextStart: '',
+        finish: '',
+        breakStart: '',
+        breakFinish: '',
+        workSystem: '',
+        workSystemName: '',
+      ),
+      location: (list: []),
+      position: (lat: 0, lon: 0),
+      coordinate: (lat: 0, lon: 0),
+      other: (
+        pegawaiId: '',
+        namaPegawai: '',
+        nomorPegawai: '',
+        emailPegawai: '',
+        fotoPegawai: '',
+        position: '',
+        status: '',
+      ),
+      holiday: (holiday: false, workDay: true),
+      breakInfo: (onBreak: false, startFrom: ''),
+      overWork: (onOverWork: false),
+      config: (
+        ffocia: false,
+        ffocoa: false,
+        coLimit: 0,
+        ciLimit: 0,
+        tolerance: 0,
+      ),
+      task: (started: [], finished: []),
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -151,6 +266,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -169,6 +289,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -187,6 +312,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -205,6 +335,80 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: false),
+      reminder:state.reminder
+    );
+  }
+
+  fFOCIMakeAllowed() {
+    final Status status = (signedIn: state.status.signedIn, signedOut: false);
+
+    final Config config = (
+      ffocia: true,
+      ffocoa: state.config.ffocoa,
+      coLimit: state.config.coLimit,
+      ciLimit: state.config.ciLimit,
+      tolerance: state.config.tolerance,
+    );
+
+    state = (
+      auth: state.auth,
+      status: status,
+      company: state.company,
+      schedule: state.schedule,
+      location: state.location,
+      position: state.position,
+      other: state.other,
+      history: state.history,
+      permission: state.permission,
+      coordinate: state.coordinate,
+      holiday: state.holiday,
+      breakInfo: state.breakInfo,
+      overWork: state.overWork,
+      config: config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
+    );
+  }
+
+  fFOCOMakeAllowed() {
+    final Status status = (
+      signedIn: state.status.signedIn,
+      signedOut: state.status.signedOut,
+    );
+
+    final Config config = (
+      ffocia: state.config.ffocia,
+      ffocoa: true,
+      coLimit: state.config.coLimit,
+      ciLimit: state.config.ciLimit,
+      tolerance: state.config.tolerance,
+    );
+
+    state = (
+      auth: state.auth,
+      status: status,
+      company: state.company,
+      schedule: state.schedule,
+      location: state.location,
+      position: state.position,
+      other: state.other,
+      history: state.history,
+      permission: state.permission,
+      coordinate: state.coordinate,
+      holiday: state.holiday,
+      breakInfo: state.breakInfo,
+      overWork: state.overWork,
+      config: config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -228,6 +432,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: breakInfo,
       overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -248,6 +457,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -268,6 +482,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: state.breakInfo,
       overWork: overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -288,6 +507,36 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       holiday: state.holiday,
       breakInfo: breakInfo,
       overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: state.exception,
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
+    );
+  }
+
+  addException(String identifier) {
+    final newExceptionList = [...state.exception.list, identifier];
+
+    state = (
+      auth: state.auth,
+      status: (signedIn: false, signedOut: false),
+      company: state.company,
+      schedule: state.schedule,
+      location: state.location,
+      position: state.position,
+      other: state.other,
+      history: state.history,
+      permission: state.permission,
+      coordinate: state.coordinate,
+      holiday: state.holiday,
+      breakInfo: state.breakInfo,
+      overWork: state.overWork,
+      config: state.config,
+      task: state.task,
+      exception: (list: newExceptionList),
+      csh: (allowed: state.csh.allowed),
+      reminder:state.reminder
     );
   }
 
@@ -306,6 +555,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
     final holidayJson = json['holiday'] ?? {};
     final breakInfoJson = json['breakInfo'] ?? {};
     final overWorkJson = json['overWork'] ?? {};
+    final configJson = json['config'] ?? {};
+    final taskJson = json['task'] ?? {};
+    final exceptionJson = json['exception'] ?? {};
+    final cshJson = json['csh'] ?? {};
+    final reminderJson = json['reminder'] ?? {};
 
     return (
       auth: (
@@ -325,6 +579,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       ),
       schedule: (
         start: scheduleJson['start'] as String,
+        nextStart: scheduleJson['nextStart'] as String,
         finish: scheduleJson['finish'] as String,
         breakStart: scheduleJson['breakStart'] as String,
         breakFinish: scheduleJson['breakFinish'] as String,
@@ -364,6 +619,23 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         startFrom: breakInfoJson['startFrom'] as String,
       ),
       overWork: (onOverWork: overWorkJson['onOverWork'] as bool),
+      config: (
+        ffocia: configJson['ffocia'] as bool,
+        ffocoa: configJson['ffocoa'] as bool,
+        coLimit: configJson['coLimit'] as int,
+        ciLimit: configJson['ciLimit'] as int,
+        tolerance: configJson['tolerance'] as int,
+      ),
+      task: (
+        started: List<String>.from(taskJson['started'] ?? []),
+        finished: List<String>.from(taskJson['finished'] ?? []),
+      ),
+      exception: (list: List<String>.from(exceptionJson['list'] ?? [])),
+      csh: (allowed: cshJson['allowed'] as bool),
+      reminder:(
+        lastLat:reminderJson['lastLat'] as double,
+        lastLon:reminderJson['lastLon'] as double
+      )
     );
   }
 
@@ -384,6 +656,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       },
       'schedule': {
         'start': state.schedule.start,
+        'nextStart': state.schedule.nextStart,
         'finish': state.schedule.finish,
         'breakStart': state.schedule.breakStart,
         'breakFinish': state.schedule.breakFinish,
@@ -393,7 +666,6 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       'location': {'list': state.location.list},
       'position': {'lat': state.position.lat, 'lon': state.position.lon},
       'coordinate': {'lat': state.coordinate.lat, 'lon': state.coordinate.lon},
-
       'other': {
         'pegawaiId': state.other.pegawaiId,
         'namaPegawai': state.other.namaPegawai,
@@ -413,6 +685,17 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         'startFrom': state.breakInfo.startFrom,
       },
       'overWork': {'onOverWork': state.overWork.onOverWork},
+      'config': {
+        'ffocia': state.config.ffocia,
+        'ffocoa': state.config.ffocoa,
+        'coLimit': state.config.coLimit,
+        'ciLimit': state.config.ciLimit,
+        'tolerance': state.config.tolerance,
+      },
+      'task': {'started': state.task.started, 'finished': state.task.finished},
+      'exception': {'list': state.exception.list},
+      'csh': {'allowed': state.csh.allowed},
+      'reminder':{'lastLat':state.reminder.lastLat,'lastLon':state.reminder.lastLon}
     };
   }
 }

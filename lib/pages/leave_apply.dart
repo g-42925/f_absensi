@@ -5,6 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/global_state.dart';
 import '../env/env.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:http_parser/http_parser.dart'; // <-- MediaType
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+
 
 class LeaveApplyPage extends ConsumerStatefulWidget {
   const LeaveApplyPage({super.key});
@@ -16,9 +21,28 @@ class LeaveApplyPage extends ConsumerStatefulWidget {
 class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _reasonController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+
+  XFile? _image;
+  
+  String? selectedValue;
+
+  final List<Map<String, String>> typeList = [
+    {'id': '68cf640082xxx', 'value': 'Cuti'},
+    {'id': '68cf64008yyy', 'value': 'Sakit'},
+  ];
 
   DateTime? tanggalMulai;
   DateTime? tanggalSelesai;
+
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? image = await _picker.pickImage(source: source);
+    if (image != null) {
+      setState(() {
+        _image = image;
+      });
+    }
+  }
 
   String formatTanggal(DateTime? date) {
     if (date == null) return "Pilih Tanggal";
@@ -68,70 +92,129 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
     final Duration d = tanggalSelesai!.difference(tanggalMulai!);
     final xTanggalMulai = DateFormat("yyyy-MM-dd").format(tanggalMulai!);
     final xTanggalSelesai = DateFormat("yyyy-MM-dd").format(tanggalSelesai!);
+    final file = File(_image!.path);
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}';
     final url = Uri.parse("${Env.api}/api/mobile/leave");
     final headers = {"Content-type": "application/json"};
+    final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
 
-    if (d.inDays > quota) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true, // supaya bisa atur tinggi
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    final bytes = await file.readAsBytes();
+
+    final compressed = await FlutterImageCompress.compressWithList(
+      bytes,
+      minWidth: 1080,
+      minHeight: 1920,
+      quality: 50,
+      format: CompressFormat.jpeg,
+    );
+
+    final request = http.MultipartRequest('POST', uploadUrl);
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file', // field name
+        compressed, // file data
+        filename: fileName,
+        contentType: MediaType('image', 'png'),
+      ),
+    );
+
+    final streamedResponse = await request.send();
+
+    if (streamedResponse.statusCode != 200) {}
+
+    final responseBody = await streamedResponse.stream.bytesToString();
+
+    final uploadResponse = responseBody;
+
+    final selected = selectedValue == "Sakit" ? "s" : "c";
+
+    final params = {
+      'company_id': company.id,
+      'tanggal_request': xTanggalMulai,
+      'tanggal_request_end': xTanggalSelesai,
+      'catatan_awal': _reasonController.text,
+      'pegawai_id': other.pegawaiId,
+      'image':uploadResponse,
+      'tipe_request' : selected
+    };
+
+    try {
+      await http.post(url, headers: headers, body: jsonEncode(params));
+      Navigator.pushReplacementNamed(context, '/');
+    } 
+    catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("gagal mengajukan cuti!"),
+          duration: Duration(seconds: 2),
         ),
-        builder: (context) {
-          return FractionallySizedBox(
-            widthFactor: 1.0,
-            heightFactor: 0.5, // setengah layar
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 60),
-                  const SizedBox(height: 20),
-                  Text(
-                    "Tidak bisa melebihi sisa jumlah cuti",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Periksa kembali',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.black54),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       );
-    } else {
-      final params = {
-        'company_id': company.id,
-        'tanggal_request': xTanggalMulai,
-        'tanggal_request_end': xTanggalSelesai,
-        'catatan_awal': _reasonController.text,
-        'pegawai_id': other.pegawaiId,
-      };
-
-      try {
-        await http.post(url, headers: headers, body: jsonEncode(params));
-        Navigator.pushReplacementNamed(context, '/permission_success');
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("gagal mengajukan cuti!"),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
     }
+
+    // if (d.inDays + 1 > quota.toDouble()) {
+    //   showModalBottomSheet(
+    //     context: context,
+    //     isScrollControlled: true, // supaya bisa atur tinggi
+    //     shape: const RoundedRectangleBorder(
+    //       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    //     ),
+    //     builder: (context) {
+    //       return FractionallySizedBox(
+    //         widthFactor: 1.0,
+    //         heightFactor: 0.5, // setengah layar
+    //         child: Padding(
+    //           padding: const EdgeInsets.all(20),
+    //           child: Column(
+    //             mainAxisAlignment: MainAxisAlignment.center,
+    //             children: [
+    //               const Icon(Icons.error_outline, color: Colors.red, size: 60),
+    //               const SizedBox(height: 20),
+    //               Text(
+    //                 "Tidak bisa melebihi sisa jumlah cuti",
+    //                 textAlign: TextAlign.center,
+    //                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+    //               ),
+    //               const SizedBox(height: 8),
+    //               const Text(
+    //                 'Periksa kembali',
+    //                 textAlign: TextAlign.center,
+    //                 style: TextStyle(fontSize: 16, color: Colors.black54),
+    //               ),
+    //             ],
+    //           ),
+    //         ),
+    //       );
+    //     },
+    //   );
+    // } else {
+    //   final params = {
+    //     'company_id': company.id,
+    //     'tanggal_request': xTanggalMulai,
+    //     'tanggal_request_end': xTanggalSelesai,
+    //     'catatan_awal': _reasonController.text,
+    //     'pegawai_id': other.pegawaiId,
+    //   };
+
+    //   try {
+    //     await http.post(url, headers: headers, body: jsonEncode(params));
+    //     Navigator.pushReplacementNamed(context, '/');
+    //   } catch (e) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       SnackBar(
+    //         content: Text("gagal mengajukan cuti!"),
+    //         duration: Duration(seconds: 2),
+    //       ),
+    //     );
+    //   }
+    // }
   }
 
   @override
   Widget build(BuildContext context) {
     final int quota = ModalRoute.of(context)!.settings.arguments as int;
+    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
 
     return Scaffold(
       appBar: AppBar(title: const Text('Form Pengajuan Cuti')),
@@ -145,16 +228,14 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
               GestureDetector(
                 onTap: () => _selectDate(context, true),
                 child: AbsorbPointer(
-                  child: Expanded(
-                    child: GestureDetector(
-                      onTap: () => pilihTanggal(context, true),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: "Pada tanggal",
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(formatTanggal(tanggalMulai)),
+                  child: GestureDetector(
+                    onTap: () => pilihTanggal(context, true),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "Pada tanggal",
+                        border: OutlineInputBorder(),
                       ),
+                      child: Text(formatTanggal(tanggalMulai)),
                     ),
                   ),
                 ),
@@ -163,21 +244,20 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
               GestureDetector(
                 onTap: () => _selectDate(context, false),
                 child: AbsorbPointer(
-                  child: Expanded(
-                    child: GestureDetector(
-                      onTap: () => pilihTanggal(context, false),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: "Sampai tanggal",
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(formatTanggal(tanggalSelesai)),
+                  child: GestureDetector(
+                    onTap: () => pilihTanggal(context, false),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "Sampai tanggal",
+                        border: OutlineInputBorder(),
                       ),
+                      child: Text(formatTanggal(tanggalSelesai)),
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
+              
               TextFormField(
                 controller: _reasonController,
                 maxLines: 4,
@@ -193,7 +273,68 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+               Container(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _pickImage(ImageSource.gallery),
+                          child: const Text('From Gallery'),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                4,
+                              ), // ubah angka sesuai kebutuhan
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                4,
+                              ), // ubah angka sesuai kebutuhan
+                            ),
+                          ),
+                          onPressed: () => _pickImage(ImageSource.camera),
+                          child: const Text('Take photo'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height:12),
+                Container(
+                  margin: const EdgeInsets.all(0),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade400),
+                  ),
+                  child: DropdownButton<String>(
+                    value: selectedValue,
+                    hint: const Text('Pilih jenis pengajuan'),
+                    isExpanded: true, // biar lebar mengikuti parent
+                    underline: const SizedBox(), // hilangkan garis bawaan
+                    items: typeList.map((Map<String, String> r) {
+                      return DropdownMenuItem<String>(
+                        value: r['value'],
+                        child: Text(r['value']!),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedValue = value;
+                      });
+                    },
+                  ),
+                ),
+              SizedBox(height:12),
               ElevatedButton(
                 onPressed: () {
                   _submitForm(quota);
@@ -209,6 +350,17 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
                   style: TextStyle(fontSize: 16),
                 ),
               ),
+              SizedBox(height:16),
+              if (_image != null && !isKeyboardVisible)
+                Container(
+                  width: double.infinity,
+                  child: Image.file(
+                    File(_image!.path),
+                    width: 250,
+                    height: 250,
+                    fit: BoxFit.cover,
+                  ),
+                ),
             ],
           ),
         ),
