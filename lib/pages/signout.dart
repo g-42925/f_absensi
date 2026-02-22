@@ -220,7 +220,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
         "csh": csh,
       };
 
-      if (state.config.ffocoa || isOnOffice(latitude, longitude)) {
+      if(state.config.ffocoa || isOnOffice(latitude, longitude)) {
         final xRequest = await http.post(
           url,
           headers: headers,
@@ -266,7 +266,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
             });
           }
 
-          ref.read(globalStateProvider.notifier).signOut();
+          ref.read(globalStateProvider.notifier).signOut(formattedTime);
 
           Navigator.of(context).pop();
 
@@ -315,7 +315,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
             );
           })();
         }
-      } else {
+      } 
+      else {
         print(isOnOffice(latitude, longitude));
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -323,7 +324,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
           (Route<dynamic> route) => false,
         );
       }
-    } catch (err) {
+    } 
+    catch (err) {
       // do something
     }
   }

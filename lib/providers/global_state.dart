@@ -2,7 +2,8 @@ import 'package:hydrated_riverpod/hydrated_riverpod.dart';
 import 'package:intl/intl.dart';
 
 // typedef GlobalState = Map<String, Map<String, dynamic>>;
-
+typedef Task = ({List<String> started, List<String> finished});
+typedef XPresence = ({String ci, String co});
 typedef Break = ({bool onBreak, String startFrom});
 typedef Holiday = ({bool holiday, bool workDay});
 typedef Auth = ({bool loggedIn, String date});
@@ -10,6 +11,7 @@ typedef Status = ({bool signedIn, bool signedOut});
 typedef OverWork = ({bool onOverWork});
 typedef Exception = ({List<String> list});
 typedef Csh = ({bool allowed});
+
 
 typedef Config = ({
   bool ffocia,
@@ -19,7 +21,6 @@ typedef Config = ({
   int tolerance,
 });
 
-typedef Task = ({List<String> started, List<String> finished});
 
 typedef Company = ({
   String id,
@@ -73,7 +74,8 @@ typedef GlobalState = ({
   Task task,
   Exception exception,
   Csh csh,
-  Reminder reminder
+  Reminder reminder,
+  XPresence presence
 });
 
 final globalStateProvider =
@@ -118,7 +120,8 @@ final globalStateProvider =
         task: (started: [], finished: []),
         exception: (list: []),
         csh: (allowed: false),
-        reminder:(lastLat:0,lastLon:0)
+        reminder:(lastLat:0,lastLon:0),
+        presence:(ci:"00:00",co:"00:00")
       ));
     });
 
@@ -151,7 +154,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: (started: newStartedTaskList, finished: finishedTaskList),
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder: (lastLat:lat,lastLon:lon)
+      reminder: (lastLat:lat,lastLon:lon),
+      presence: state.presence
     );
   }
 
@@ -177,7 +181,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: (started: startedTaskList, finished: newFinishedTaskList),
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:(lastLat:0,lastLon:0)
+      reminder:(lastLat:0,lastLon:0),
+      presence: state.presence
     );
   }
 
@@ -202,7 +207,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -247,7 +253,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: (started: [], finished: []),
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence,
     );
   }
 
@@ -270,7 +277,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -293,11 +301,12 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
-  signIn() {
+  signIn(String formattedTime) {
     state = (
       auth: state.auth,
       status: (signedIn: true, signedOut: false),
@@ -316,11 +325,12 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:(ci:formattedTime,co:state.presence.co)
     );
   }
 
-  signOut() {
+  signOut(formattedTime) {
     state = (
       auth: state.auth,
       status: (signedIn: true, signedOut: true),
@@ -339,7 +349,9 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: false),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:(ci:state.presence.ci,co:formattedTime)
+
     );
   }
 
@@ -372,7 +384,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -408,7 +421,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -436,7 +450,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -461,7 +476,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -486,7 +502,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -511,7 +528,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: state.exception,
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -536,7 +554,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       task: state.task,
       exception: (list: newExceptionList),
       csh: (allowed: state.csh.allowed),
-      reminder:state.reminder
+      reminder:state.reminder,
+      presence:state.presence
     );
   }
 
@@ -560,6 +579,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
     final exceptionJson = json['exception'] ?? {};
     final cshJson = json['csh'] ?? {};
     final reminderJson = json['reminder'] ?? {};
+    final presenceJson = json['presence'] ?? {};
 
     return (
       auth: (
@@ -635,6 +655,10 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:(
         lastLat:reminderJson['lastLat'] as double,
         lastLon:reminderJson['lastLon'] as double
+      ),
+      presence:(
+        ci:presenceJson['ci'] as String,
+        co:presenceJson['co'] as String,
       )
     );
   }
@@ -695,7 +719,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       'task': {'started': state.task.started, 'finished': state.task.finished},
       'exception': {'list': state.exception.list},
       'csh': {'allowed': state.csh.allowed},
-      'reminder':{'lastLat':state.reminder.lastLat,'lastLon':state.reminder.lastLon}
+      'reminder':{'lastLat':state.reminder.lastLat,'lastLon':state.reminder.lastLon},
+      'presence':{'ci':state.presence.ci,'co':state.presence.co}
     };
   }
 }

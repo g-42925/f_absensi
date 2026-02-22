@@ -42,7 +42,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
     final headers = {"Content-type": "application/json"};
 
     if (_formKey.currentState!.validate() && _selectedDateTime != null) {
-      if (_selectedDateTime!.isAtSameMomentAs(custom)) {
+      if (_selectedDateTime!.isAfter(custom)) {
         final overWorkData = {
           "start_from": DateFormat(
             'yyyy-MM-dd HH:mm:ss',

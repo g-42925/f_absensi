@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -52,60 +53,110 @@ class _LogPageState extends ConsumerState<LogPage>{
   @override Widget build(BuildContext ctx){
     return Scaffold(
       body:SafeArea(
-				child:Padding(
- 					padding: EdgeInsets.all(16.0),
-  				child: 				FutureBuilder(
-        	future:log,
-        	builder:(context,snapshot){
-    			if(snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } 
-					if (snapshot.hasError) {
-            return Center(child: Text("something went wrong"));
-          }
-					else{
-						final response = snapshot.data!;
-            final data = jsonDecode(response.body);
-						return Table(
-  						border: TableBorder.all(),
-  						children: [
-    						TableRow(
-									children: [
-      							Padding(
-        							padding: EdgeInsets.all(8),
-        							child: Text('Tanggal'),
-      							),
-      							Padding(
-        							padding: EdgeInsets.all(8),
-        							child: Text('Jam masuk'),
-      							),
-									  Padding(
-        							padding: EdgeInsets.all(8),
-        							child: Text('Jam pulang'),
-      							)
-    							]
-								),
-								...data['r'].map((d){
-									return TableRow(children: [
-        						Padding(
-          						padding: EdgeInsets.all(8),
-          						child: Text(d['tanggal_absen']),
-        						),
-        						Padding(
-          						padding: EdgeInsets.all(8),
-          						child: Text(d['jam_masuk']),
-        						),
-        						Padding(
-          						padding: EdgeInsets.all(8),
-          						child: Text(d['jam_keluar']),
-        						),
-      						]);
-    						}).toList(),
-  						],
-						);
-					}          
-        }
-      )
+				child:SingleChildScrollView(
+					child:Padding(
+						padding: EdgeInsets.all(16.0),
+						child:FutureBuilder(
+							future:log,
+							builder:(context,snapshot){
+								if(snapshot.connectionState == ConnectionState.waiting) {
+									return Center(child: CircularProgressIndicator());
+								} 
+								if (snapshot.hasError) {
+									return Center(child: Text("something went wrong"));
+								}
+								else{
+									final response = snapshot.data!;
+									final data = jsonDecode(response.body);
+									final List list = data['r'];
+									final filter = DateFormat('yyyy-MM-dd').format(DateTime.now());
+									final filtered = list.where((item) {
+										return item['tanggal_absen'] == filter;
+									}).toList();
+
+									return Column(
+										children:[
+											Table(
+												border: TableBorder.all(),
+												children: [
+													TableRow(
+														children: [
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text('Tanggal'),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text('Jam masuk'),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text('Jam pulang'),
+															)
+														]
+													),
+													...filtered.map((d){
+														return TableRow(children: [
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text(d['tanggal_absen']),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text(d['jam_masuk']),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text(d['jam_keluar']),
+															),
+														]);
+													}).toList(),
+												],
+											),
+										  SizedBox(height:10),
+											Table(
+												border: TableBorder.all(),
+												children: [
+													TableRow(
+														children: [
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text('Tanggal'),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text('Jam masuk'),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text('Jam pulang'),
+															)
+														]
+													),
+													...data['r'].map((d){
+														return TableRow(children: [
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text(d['tanggal_absen']),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text(d['jam_masuk']),
+															),
+															Padding(
+																padding: EdgeInsets.all(8),
+																child: Text(d['jam_keluar']),
+															),
+														]);
+													}).toList(),
+												],
+											)
+										]
+									);
+								}          
+							}
+						)
+				  )
 				)
 			)
     );

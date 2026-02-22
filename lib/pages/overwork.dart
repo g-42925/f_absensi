@@ -120,7 +120,7 @@ class _OverWorkPageState extends ConsumerState<OverWorkPage> {
                                     ).parse(item['start_from']);
                                     if (DateTime.now().isBefore(until)) {
                                       if (DateTime.now().isAfter(startFrom)) {
-                                        if (item['approved'] == 1) {
+                                        if (item['approved'] == '1') {
                                           Navigator.pushNamed(
                                             context,
                                             '/overwork_start',
@@ -131,7 +131,8 @@ class _OverWorkPageState extends ConsumerState<OverWorkPage> {
                                                   item['employee_overwork_id'],
                                             },
                                           );
-                                        } else {
+                                        } 
+                                        else {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(

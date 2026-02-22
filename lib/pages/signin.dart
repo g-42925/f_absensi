@@ -159,6 +159,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 
   void captureAndUpload(String? pegawaiId,bool ffocia) async {
+    final globalState = ref.read(globalStateProvider);
+    final config = globalState.config;
+
+
     final supabase = Supabase.instance.client;
     final currentTime = DateTime.now();
 
@@ -262,7 +266,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         "pegawai_id": pegawaiId,
       };
 
-      if (ffocia || isOnOffice(latitude, longitude)) {
+      if ((ffocia || config.ffocia) || isOnOffice(latitude, longitude)) {
         if(faces.length > 0){
           final xRequest = await http.post(
             url,
@@ -320,7 +324,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
             Navigator.of(context).pop();
 
-            ref.read(globalStateProvider.notifier).signIn();
+            ref.read(globalStateProvider.notifier).signIn(formattedTime);
             ref
               .read(globalStateProvider.notifier)
               .setPosition(latitude, longitude);
@@ -591,7 +595,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 								});
 								captureAndUpload(
 									other.pegawaiId,
-									args['ffocia'] as bool,
+									args['ffocia'],
 								);
 							},           
 							child: Text(
