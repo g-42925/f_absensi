@@ -153,6 +153,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         tolerance: tolerance,
       );
 
+      final XPresence presence = (
+        ci:responseBody['result']['presence']['jam_masuk'],
+        co:responseBody['result']['presence']['jam_keluar'],
+      );
+
       ref.read(globalStateProvider.notifier).login((
         auth: auth,
         status: status,
@@ -171,7 +176,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         task: (started: [], finished: []),
         exception: (list: []),
         csh: (allowed: false),
-        reminder: (lastLat:0,lastLon:0)
+        reminder: (lastLat:0,lastLon:0),
+        presence: presence
       ));
 
       Navigator.pushReplacementNamed(context, '/');

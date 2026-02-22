@@ -98,11 +98,14 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     final auth = globalState.auth;
     final config = globalState.config;
     final breakInfo = globalState.breakInfo;
+    final presence = globalState.presence;
     final breakStartTime = auth.loggedIn ? schedule.breakStart : "00:00";
     final breakStart = DateFormat("HH:mm").parse(breakStartTime);
     final pp = globalState.other.fotoPegawai;
 
     final String message = "Fokus pada langkah, bukan jaraknya";
+    final ciLable = presence.ci == "00:00" ? "Check-In" : "${presence.ci}";
+    final coLable = presence.co == "00:00" ? "Check-Out" : "${presence.co}";
 
     return auth.loggedIn
         ? Scaffold(
@@ -263,7 +266,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                         children: [
                           IconLabel(
                             icon: Icons.login,
-                            label: 'Check-in',
+                            label: "Check-in",
                             onPressed: () {
                               if (!status.signedIn) {
                                 if (DateTime.now().isBefore(
@@ -428,7 +431,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                           ),
                           IconLabel(
                             icon: Icons.logout,
-                            label: 'Check-out',
+                            label: "Check-out",
                             onPressed: () {
                               ref.refresh(locationProvider);
                               Navigator.pushNamed(
