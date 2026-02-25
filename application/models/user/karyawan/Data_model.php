@@ -13,6 +13,31 @@ class Data_model extends CI_Model {
         return $query;
     }
 
+    public function getWithFilter($companyId,$filter) {
+        $query = null;
+        $nik = $filter['nik'];
+        $div = $filter['div'];
+
+        if($filter['div'] == ''){
+          if($filter['nik'] == ''){
+            $query = $this->db->query("SELECT * FROM m_pegawai WHERE is_del='n' and company_id=$companyId ")->result_array();
+          }
+          else{
+            $query = $this->db->query("SELECT * FROM m_pegawai WHERE is_del='n' and company_id=$companyId and nik='$nik'")->result_array();
+          }
+        }
+        else{
+          if($filter['nik'] == ''){
+            $query = $this->db->query("SELECT * FROM m_pegawai WHERE is_del='n' and company_id=$companyId and division_id='$div' ")->result_array();
+          }
+          else{
+            $query = $this->db->query("SELECT * FROM m_pegawai WHERE is_del='n' and company_id=$companyId and division_id='$div' and nik='$nik' ")->result_array();
+          }         
+        }
+
+        return $query;
+    }
+
     public function add_proses($companyId) {
         $totalEmployee = $this->db->query("select * from m_pegawai where company_id = ?",[$companyId])->num_rows();
         $company = $this->db->query("select * from companies where id = ?",[$companyId])->row_array();

@@ -2,12 +2,21 @@
 <div class="container-xxl flex-grow-1 container-p-y">
   <!-- Users List Table -->
   <div class="card">
-    <div class="card-header border-bottom">
-      <h5 class="card-title"><?=$namalabel;?></h5>
-      <div class="text-start">
-        <a href="<?=base_url('karyawan/data/add/0');?>" class="btn btn-secondary btn-primary btn-sm"><i class="ti ti-plus me-md-1"></i> Tambah Data</a>
-      </div>
-    </div>
+    <div class="card-header border-bottom flex flex-row gap-3">
+      <form method="get" action="<?= base_url().'karyawan/data/filter' ?>" class="flex flex-row w-full gap-3">
+        <select name="divisionId" class="w-full p-3 rounded-md border-2 border-black appearance-none">
+          <option value="all">Any</option>
+          <?php foreach ($divisions as $row): ?>
+            <option <?= $div == $row['id'] ? 'selected':'' ?> value="<?= $row['id']; ?>">
+              <?= $row['division_name']; ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+        <input value="<?= $nik ?>" name="nik" placeholder="search by nik" type="text" class="p-3 border-2 border-black rounded-md" placeholder=""/>
+        <button class="bg-black text-white p-3 rounded-md">search</button>
+      </form>
+      <a class="bg-black text-white p-3 rounded-md" href="<?=base_url('karyawan/data/add/0');?>">New</a>
+    </div>    
     <div class="card-datatable table-responsive">
       <table class="table border-top" id="dataTable">
         <thead>

@@ -2,46 +2,28 @@
 <div class="container-xxl flex-grow-1 container-p-y">
   <!-- Users List Table -->
   <div class="card">
-    <div class="card-header border-bottom">
-      <h5 class="card-title mb-0"><?=$namalabel;?><br/>
-        <small><?=indo($today);?></small>
-      </h5>
-    </div>
-    <div class="card-body">
-      <div class="pt-3">
-        <div class="row">
-          <div class="col-xl-3 col-lg-4 col-md-5 mb-4">
-            <label for="flatpickr-date" class="form-label">Filter</label>
-            <div class="input-group">
-              <input type="text" class="form-control filtertglabsensi" placeholder="YYYY-MM-DD" value="<?=$today;?>" id="flatpickr-date" />
-              <a href="javascript:filtertglAbsensi();" class="input-group-text btn btn-outline-primary">Terapkan</a>
-            </div>
-          </div>
-          <div class="col-xl-3 col-lg-4 col-md-5 mb-4 mt-6">
-            <div class="input-group">
-              <div class="col-xl-6 col-md-6 col-sm-6 col-xs-6">
-                <select class="select2 form-select filter" name="filter" required>
-                  <option value="hhk">Hadir</option>
-                  <option value="alpha-2">Alpha-2</option>
-                  <option value="alpha-1">Alpha-1</option>
-                  <option value="s">Sakit</option>
-                  <option value="i">Izin</option>
-                  <option value="csh">Cuti setengah hari</option>
-                  <option value="csh">Cuti</option>
-                </select>
-              </div>
-              <a href="javascript:filterWithState();" class="input-group-text btn btn-outline-primary">Terapkan</a>
-            </div>
-          </div>
-        </div>
-        <!-- <div class="btn btn-primary w-100 p-3">
-          Untuk menampilkan filter tanggal.
-
-          <?php $day = date('D', strtotime($today));
-          $dayList = array('Sun' => 'Minggu', 'Mon' => 'Senin', 'Tue' => 'Selasa', 'Wed' => 'Rabu', 'Thu' => 'Kamis', 'Fri' => 'Jumat', 'Sat' => 'Sabtu');
-          ?>
-        </div> -->
-      </div>
+  <div class="card">
+    <div class="card-header border-bottom flex flex-col gap-3">
+      <form method="get" action="<?= base_url().'/attendance/filter' ?>" class="flex flex-row w-full gap-3">
+        <select name="divisionId" class="w-full p-3 rounded-md border-2 border-black appearance-none">
+          <option value="all">All</option>            
+          <?php foreach ($divisions as $row): ?>
+            <option <?= $row['id'] == $div ? 'selected':'' ?> value="<?= $row['id']; ?>">
+              <?= $row['division_name']; ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+        <select name="status" class="w-full p-3 rounded-md border-2 border-black appearance-none">
+          <option <?= $status == 'all' ? 'selected':'' ?> value="all">All</option>
+          <option <?= $status == 'hhk' ? 'selected':'' ?> value="hhk">Hadir</option>
+          <option <?= $status == 'alpha-2' ? 'selected':'' ?> value="alpha-2">Alpha-2</option>
+          <option <?= $status == 's' ? 'selected':'' ?> value="s">Sakit</option>
+          <option <?= $status == 'i' ? 'selected':'' ?> value="i">Izin</option>
+          <option <?= $status == 'c' ? 'selected':'' ?> value="c">Cuti</option>
+        </select>
+        <input value="<?= $date ?>" name="date" type="date" class="w-full p-3 rounded-md border-2 border-black"/>
+        <button class="bg-black text-white p-3 rounded-md">search</button>
+      </form>
     </div>
     <div class="card-datatable table-responsive">
       <table class="table border-top" id="dataTableatt">

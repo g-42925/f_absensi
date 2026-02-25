@@ -23,6 +23,43 @@ class Data extends CI_Controller {
         $this->load->model('user/attendance_model', 'att');
     }
     
+    public function filter(){
+			cek_menu_access();
+			$data['htmlpagejs'] = 'none';
+			$data['nmenu']      = 'Karyawan';
+			$data['title']      = 'Data Karyawan';
+			$data['namalabel']  = $data['title'];
+			$data['auth']       = authUser();
+
+      $div = $this->input->get('divisionId');
+			$nik = $this->input->get('nik');
+
+			$div = $div == 'all' ? '' : $div;
+
+			$companyId = $this->session->userdata('company_id');
+
+			$filter = ['div' => $div,'nik' => $nik];
+
+			$divisions = $this->db->query("select * from divisions where company_id = ?",[$companyId])->result_array();
+
+			$data['datas'] = $this->data->getWithFilter($companyId,$filter);
+
+			foreach($data['datas'] as $index => $d){
+				$division = $this->db->query("select * from divisions where id = ?",[$d['division_id']])->row_array();
+				$data['datas'][$index]['divisi'] = $division['division_name'];
+			}
+
+			$data['divisions'] = $divisions;
+			$data['div'] = $div;
+			$data['nik'] = $nik;
+
+			$this->load->view('templates/header', $data);
+			$this->load->view('templates/sidemenu', $data);
+			$this->load->view('templates/sidenav', $data);
+			$this->load->view('module/karyawan/data/index', $data);
+			$this->load->view('templates/footer', $data);
+			$this->load->view('templates/fscript-html-end', $data);
+    }
 
     public function index() {
         cek_menu_access();
@@ -42,6 +79,12 @@ class Data extends CI_Controller {
           $division = $this->db->query("select * from divisions where id = ?",[$d['division_id']])->row_array();
           $data['datas'][$index]['divisi'] = $division['division_name'];
         }
+
+        $data['divisions'] = $divisions;
+
+				$data['div'] = '';
+		   	$data['nik'] = '';
+				
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidemenu', $data);

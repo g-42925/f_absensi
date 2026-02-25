@@ -21,7 +21,42 @@ class Attendance extends CI_Controller {
         $this->load->model('user/attendance_model', 'att');
     }
 
-    public function filter($filter){
+    public function division($div){
+        cek_menu_access();
+        $data['htmlpagejs'] = 'none';
+        $data['nmenu']      = 'Kehadiran Harian';
+        $data['title']      = 'Kehadiran Harian';
+        $data['namalabel']  = $data['title'];
+        $data['auth']       = authUser();        
+        
+				$tgl = null;
+
+        if ($tgl=='') {
+            $data['today']  = date('Y-m-d');
+        }else{
+            $data['today']  = $tgl;
+        }    
+
+
+        $data['maxdate'] = date("Y-m-d", strtotime(date('Y-m-d')." +3 day"));
+
+        if ($data['today']>$data['maxdate']) {
+            $data['today']  = date('Y-m-d');
+            $this->session->set_flashdata('message', '<div class="me-3 ms-3"><div class="alert alert-warning p-cg" role="alert">Maksimal 3 hari kedepan dari tanggal sekarang.</div></div>');
+        }
+
+
+        $data['datas']  = $this->att->getByDivision($data['today'],'n',false,$div);
+
+        $this->load->view('templates/header', $data);
+        $this->load->view('templates/sidemenu', $data);
+        $this->load->view('templates/sidenav', $data);
+        $this->load->view('module/attendance/filter', $data);
+        $this->load->view('templates/footer', $data);
+        $this->load->view('templates/fscript-html-end', $data);
+		}
+
+    public function filter(){
         cek_menu_access();
         $data['htmlpagejs'] = 'none';
         $data['nmenu']      = 'Kehadiran Harian';
@@ -32,18 +67,43 @@ class Attendance extends CI_Controller {
         $tgl = null;
 
         if ($tgl=='') {
-            $data['today']  = date('Y-m-d');
-        }else{
-            $data['today']  = $tgl;
+          $data['today']  = date('Y-m-d');
+        }
+        else{
+          $data['today']  = $tgl;
         }
 
         $data['maxdate'] = date("Y-m-d", strtotime(date('Y-m-d')." +3 day"));
 
         if ($data['today']>$data['maxdate']) {
-            $data['today']  = date('Y-m-d');
-            $this->session->set_flashdata('message', '<div class="me-3 ms-3"><div class="alert alert-warning p-cg" role="alert">Maksimal 3 hari kedepan dari tanggal sekarang.</div></div>');
+          $data['today']  = date('Y-m-d');
+          $this->session->set_flashdata('message', '<div class="me-3 ms-3"><div class="alert alert-warning p-cg" role="alert">Maksimal 3 hari kedepan dari tanggal sekarang.</div></div>');
         }
 
+        $div = $this->input->get('divisionId');
+        $status = $this->input->get('status');
+        $date = $this->input->get('date');
+       
+        $date = $date ?: date('Y-m-d');
+        $div = $div == 'all' ? '' : $div;
+        $status = $status == 'all' ? '' : $status;
+
+        $filter = [
+          'date' => $date,
+          'div' => $div,
+          'status' => $status
+        ];
+
+        $data['status'] = $status;
+        $data['date'] = $date;
+        $data['div'] = $div;
+
+        $companyId = $this->session->userdata('company_id');
+
+        $data['divisions'] = $this->db->query("select * from divisions where company_id = ?",[$companyId])->result_array();
+
+        // $data['datas']  = $this->att->get_data($data['today'],'n',false);
+        
         $data['datas']  = $this->att->getByFilter($data['today'],'n',false,$filter);
 
         $this->load->view('templates/header', $data);
@@ -67,8 +127,9 @@ class Attendance extends CI_Controller {
             $data['today']  = date('Y-m-d');
             $this->session->set_flashdata('message', '<div class="me-3 ms-3"><div class="alert alert-warning p-cg" role="alert">Maksimal 3 hari kedepan dari tanggal sekarang.</div></div>');
         }
-      
+
         $data['datas']  = $this->att->get_data($data['today'],'n',false);
+
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidemenu', $data);
@@ -102,6 +163,11 @@ class Attendance extends CI_Controller {
             $data['today']  = date('Y-m-d');
             $this->session->set_flashdata('message', '<div class="me-3 ms-3"><div class="alert alert-warning p-cg" role="alert">Maksimal 3 hari kedepan dari tanggal sekarang.</div></div>');
         }
+
+        $companyId = $this->session->userdata('company_id');
+
+        $data['employees'] = $this->db->query("select * from m_pegawai where company_id = ?",[$companyId])->result_array();
+        $data['divisions'] = $this->db->query("select * from divisions where company_id = ?",[$companyId])->result_array();
 
         $data['datas']  = $this->att->get_data($data['today'],'n',false);
 
