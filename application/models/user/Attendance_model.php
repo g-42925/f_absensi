@@ -322,7 +322,7 @@ class Attendance_model extends CI_Model {
         $today = Date('N');
         $serverDate = new DateTime();
         $date = $filter['date'];
-        $qiery = null;
+        $query = null;
 
         $tgl = $date;
         $div = $filter['div'];

@@ -29,7 +29,7 @@ class Attendance extends CI_Controller {
         $data['namalabel']  = $data['title'];
         $data['auth']       = authUser();        
         
-				$tgl = null;
+		$tgl = null;
 
         if ($tgl=='') {
             $data['today']  = date('Y-m-d');
