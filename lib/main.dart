@@ -50,7 +50,7 @@ import 'package:audioplayers/audioplayers.dart';
 import '../providers/global_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const int CURRENT_VERSION = 47; // naikkan setiap release
+const int CURRENT_VERSION = 48; // naikkan setiap release
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -13,9 +13,6 @@ final locationProvider = FutureProvider<Position>((ref) async {
 
   if (permission == LocationPermission.denied) throw Exception('Permission denied');
   
-
-  
-
   // 3. retry
   int retry = 0;
 
