@@ -50,8 +50,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
 
-        print(responseBody['result']);
-      
+        if (responseBody['success'] == false) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid Email or Password'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
         final String workSystem = responseBody['result']['workSystem'];
 
         final start = workSystem == "shift"
@@ -183,15 +193,33 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
         Navigator.pushReplacementNamed(context, '/');
       } 
+      else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid Email or Password'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
     catch (e) {
-      print("error");
-      print(e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An error occurred. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }  
     finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 

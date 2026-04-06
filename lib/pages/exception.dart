@@ -1,7 +1,7 @@
 import 'dart:convert';
-
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'dart:async';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -22,7 +22,15 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
     final other = globalState.other;
     Uri url = Uri.parse("${Env.api}/api/mobile/excList/${other.pegawaiId}");
 
-    return http.get(url);
+    try {
+      return await http.get(url).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
   }
 
   Future<void> fetch() async {
@@ -78,7 +86,17 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
     final config = ref.read(globalStateProvider).config;
 
     return Scaffold(
-      appBar: AppBar(title: Text("Pengecualian")),
+      appBar: AppBar(
+        title: Text("Pengecualian"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              fetch();
+            },
+          )
+        ],
+      ),
       body: list != null
           ? FutureBuilder(
               future: list,
@@ -87,8 +105,35 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                   return Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text("something went wrong"));
-                } else {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => Container(
+                        margin: EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error, color: Colors.white),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                "request timeout or something went wrong",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }); 
+                  return SizedBox();
+                } 
+                else {
                   final response = snapshot.data!;
                   final data = jsonDecode(response.body);
                   if (data['success'] as bool) {

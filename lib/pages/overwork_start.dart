@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http_parser/http_parser.dart';
@@ -249,7 +250,11 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
         url,
         headers: headers,
         body: jsonEncode(params),
+      )
+      .timeout(
+        const Duration(seconds: 3)
       );
+      
 
       final xResponse = jsonDecode(xRequest.body);
 
@@ -313,126 +318,73 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
         })();       
       }
     } 
+    on TimeoutException catch (err) {
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
+    }
     catch (err) {
-      print("error");
-      print(err);
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
     }
   }
-
-  // void captureAndUpload(
-  //   double latitude,
-  //   double longitude,
-  //   String? pegawaiId,
-  //   dynamic id,
-  //   dynamic id2,
-  // ) async {
-  //   final supabase = Supabase.instance.client;
-  //   final currentTime = DateTime.now();
-
-  //   final uri = Uri.parse(Env.gMapUrl).replace(
-  //     queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
-  //   );
-
-    // try {
-    //   final state = ref.read(globalStateProvider);
-    //   final other = state.other;
-    //   final company = state.company;
-    //   final img = await _controller.takePicture();
-    //   final requestResponse = await http.get(uri);
-    //   final response = jsonDecode(requestResponse.body);
-    //   final target = response['results'][0];
-    //   final addressComponents = target['address_components'];
-    //   final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
-    //   final url = Uri.parse("${Env.api}/api/mobile/overworkstart");
-    //   final formattedTime = DateFormat("HH:mm").format(currentTime);
-    //   final headers = {"Content-type": "application/json"};
-    //   final now = DateTime.now(); // ambil tanggal sekarang
-    //   final formatted = DateFormat('yyyy-MM-dd').format(now);
-    //   final formattedSecond = DateFormat('HH:mm:ss').format(now);
-    //   final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
-
-    //   loc['address'] = target['formatted_address'];
-    //   loc['subDistrict'] = addressComponents[3]['short_name'];
-    //   loc['province'] = addressComponents[5]['short_name'];
-    //   loc['country'] = addressComponents[6]['long_name'];
-
-    //   setState(() {
-    //     latitude = latitude;
-    //     longitude = longitude;
-    //     path = img.path;
-    //     preview = true;
-    //   });
-
-    //   final result = await captureScreen();
-
-    //   await supabase.storage
-    //       .from('storage')
-    //       .uploadBinary(fileName, result.asUint8List());
-
-    //   final publicUrl = await supabase.storage
-    //       .from('storage')
-    //       .getPublicUrl(fileName);
-
-    //   final params = {
-    //     "start_photo": publicUrl,
-    //     "start_location": "$latitude/$longitude",
-    //     "employee_id": pegawaiId,
-    //     'employee_overwork_detail_id': id,
-    //     'employee_overwork_id': id2,
-    //   };
-
-    //   final xRequest = await http.post(
-    //     url,
-    //     headers: headers,
-    //     body: jsonEncode(params),
-    //   );
-
-    //   final xResponse = jsonDecode(xRequest.body);
-
-    //   if (!xResponse['success']) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(
-    //         content: Text("coba beberapa saat lagi"),
-    //         duration: Duration(seconds: 4),
-    //       ),
-    //     );
-
-    //     Navigator.pop(context);
-    //   } else {
-    //     // final response = await supabase
-    //     //     .from('companies')
-    //     //     .select()
-    //     //     .eq('company_id', company.id)
-    //     //     .maybeSingle();
-
-    //     // if (xResponse['late'] as bool) {
-    //     //   await supabase.from('messages').insert({
-    //     //     'receiver_id': response?['account_id'],
-    //     //     'date': formatted,
-    //     //     'created_at': timestamp,
-    //     //     'image': publicUrl,
-    //     //     'employee_id': pegawaiId,
-    //     //     'employee_name': other.namaPegawai,
-    //     //     'late': xResponse['late'] as bool,
-    //     //     'late_diff': xResponse['late'] as bool ? xResponse['late_diff'] : 0,
-    //     //     'action_type': 'melakukan absen masuk',
-    //     //     'action_time': formattedSecond,
-    //     //     'on_office': isOnOffice(latitude, longitude),
-    //     //   });
-    //     // }
-
-    //     Navigator.pushNamedAndRemoveUntil(
-    //       context,
-    //       '/',
-    //       (Route<dynamic> route) => false,
-    //     );
-    //   }
-    // } 
-    // catch (err) {
-    //   print("error");
-    //   print(err);
-    // }
-  // }
 
   Widget setPreview() {
     return RepaintBoundary(

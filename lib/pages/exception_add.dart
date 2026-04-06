@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'dart:async';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -105,16 +105,6 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
 
           final uploadResponse = responseBody;
 
-
-
-          // final supabase = Supabase.instance.client;
-
-          // await supabase.storage.from('storage').upload(fileName, file);
-
-          // final uploaded = supabase.storage
-          //     .from('storage')
-          //     .getPublicUrl(fileName);
-
           final isCsh = _selectedValue == "Yes" ? true : false;
 
           final exceptionData = {
@@ -130,6 +120,9 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
             url,
             headers: headers,
             body: jsonEncode(exceptionData),
+          )
+          .timeout(
+            const Duration(seconds: 3)
           );
 
           if (jsonDecode(exc.body)['success']) {
@@ -137,28 +130,99 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
             Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
           } 
           else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("coba beberapa saat lagi"),
-                duration: Duration(seconds: 2),
-              ),
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (context) {
+                return Container(
+                  margin: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error, color: Colors.white),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "Request timeout, coba beberapa saat lagi",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             );
 
             Navigator.pop(context);
           }
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("gagal mengajukan pengecualian!"),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        } finally {
+        } 
+        on TimeoutException catch(err) {
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (context) {
+              return Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Request timeout, coba beberapa saat lagi",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );          
+        }
+        catch (e) {
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (context) {
+              return Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Request timeout, coba beberapa saat lagi",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );          
+        } 
+        finally {
           setState(() {
             clicked = false;
           });
         }
-      } else {
+      } 
+      else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("pengajuan pengecualian tidak valid"),

@@ -1,7 +1,7 @@
 import 'dart:convert';
-
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'dart:async';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -21,7 +21,15 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
     final other = globalState.other;
     Uri url = Uri.parse("${Env.api}/api/mobile/claim/${other.pegawaiId}");
 
-    return http.get(url);
+    try {
+      return await http.get(url).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
   }
 
   Future<void> fetch() async {
@@ -59,19 +67,66 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
       final response = await http.get(url);
       final result = jsonDecode(response.body);
 
-      print(result);
-
       Navigator.pushNamed(
         context,
         '/claim_submit',
         arguments: {'result': result},
       );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Coba beberapa saat lagi'),
-          duration: Duration(seconds: 2),
-        ),
+    } 
+    on TimeoutException catch (err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+    catch (err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       );
     }
   }
@@ -89,10 +144,38 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
                   return Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text("something went wrong"));
-                } else {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => Container(
+                      margin: EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error, color: Colors.white),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                "Request timeout or something went wrong",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        )
+                      ),
+                    );
+                  }); 
+
+
+                  return SizedBox();
+                } 
+                else {
                   final response = snapshot.data!;
-                  print(response.body);
                   final data = jsonDecode(response.body);
                   if (data['success'] as bool) {
                     return ListView.builder(
@@ -130,7 +213,8 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
                         );
                       },
                     );
-                  } else {
+                  } 
+                  else {
                     return Center(
                       child: Text("something went wrong or no data exist"),
                     );
@@ -144,7 +228,6 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           getReimburseList(company.id);
-          //Navigator.pushNamed(context, '/claim_submit');
         },
         tooltip: 'Tambah',
         child: const Icon(Icons.add),

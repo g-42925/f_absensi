@@ -1,7 +1,7 @@
 import 'dart:convert';
-
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'dart:async';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -42,10 +42,60 @@ class _ShortPemissionPageState extends ConsumerState<ShortPermissionPage> {
     };
 
     try {
-      await http.post(url, headers: headers, body: jsonEncode(params));
+      await http.post(url, headers: headers, body: jsonEncode(params)).timeout(const Duration(seconds: 3));
       Navigator.pushReplacementNamed(context, '/');
-    } catch (e) {
-      print(e);
+    } 
+    on TimeoutException catch(err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Request timeout",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    catch (e) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Something went wrong",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
   }
 

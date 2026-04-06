@@ -1,8 +1,8 @@
 import 'dart:convert';
-
-import 'package:f_absensi/env/env.dart';
+import 'dart:async';
+import 'package:absensi/env/env.dart';
 import 'package:intl/intl.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -33,10 +33,19 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     ];
   }
 
-  Future<http.Response> getEventList(String empId, String date) {
+  Future<http.Response> getEventList(String empId, String date) async {
     Uri url = Uri.parse("${Env.api}/api/mobile/calendar/$empId/$date");
-
-    return http.get(url);
+    
+    try {
+      return await http.get(url).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
+    //return http.get(url);
   }
 
   Future<void> fetch(String empId, String date) async {
@@ -96,9 +105,38 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(child: Text("Error: ${snapshot.error}"));
-                      } else {
+                      } 
+                      else if (snapshot.hasError) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => Container(
+                            margin: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "Request timeout or something went wrong",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            ),
+                          );
+                        });
+
+                        return SizedBox();
+                      } 
+                      else {
                         final response = snapshot.data!;
                         print(response.body);
                         final data = jsonDecode(response.body);

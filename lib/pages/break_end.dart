@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -178,6 +179,9 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         url,
         headers: headers,
         body: jsonEncode(params),
+      )
+      .timeout(
+        const Duration(seconds: 3)
       );
 
       final xResponse = jsonDecode(xRequest.body);
@@ -237,80 +241,73 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         })();
       }
     } 
+    on TimeoutException catch (err) {
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
+    }
     catch (err) {
-      print(err);
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
     }
   }
-
-  // void captureAndUpload(String? pegawaiId,double latitude,double longitude) async {
-  //   final uri = Uri.parse(Env.gMapUrl).replace(
-  //     queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
-  //   );
-
-  //   try {
-  //     final img = await _controller.takePicture();
-  //     final requestResponse = await http.get(uri);
-  //     final response = jsonDecode(requestResponse.body);
-  //     final target = response['results'][0];
-  //     final addressComponents = target['address_components'];
-  //     final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
-  //     final url = Uri.parse("${Env.api}/api/mobile/afterbreak");
-  //     final headers = {"Content-type": "application/json"};
-  //     final now = DateFormat('HH:mm').format(DateTime.now());
-  //     final globalState = ref.read(globalStateProvider);
-  //     final employeeId = globalState.other.pegawaiId;
-  //     final limit = globalState.schedule.breakFinish;
-
-  //     loc['address'] = target['formatted_address'];
-
-  //     loc['subDistrict'] = addressComponents[3]['short_name'];
-  //     loc['province'] = addressComponents[5]['short_name'];
-  //     loc['country'] = addressComponents[6]['long_name'];
-
-  //     setState(() {
-  //       latitude = latitude;
-  //       longitude = longitude;
-  //       path = img.path;
-  //       preview = true;
-  //     });
-
-  //     final result = await captureScreen();
-
-  //     await supabase.storage
-  //         .from('storage')
-  //         .uploadBinary(fileName, result.asUint8List());
-
-  //     final publicUrl = supabase.storage.from('storage').getPublicUrl(fileName);
-
-  //     final params = {
-  //       'jam_sistirahat': now,
-  //       'pegawai_id': employeeId,
-  //       'batas': limit,
-  //       'photo': publicUrl,
-  //       'latitude': latitude,
-  //       'longitude': longitude,
-  //     };
-
-  //     try {
-  //       await http.post(url, headers: headers, body: jsonEncode(params));
-
-  //       ref.read(globalStateProvider.notifier).breakEnd();
-
-  //       Navigator.pushNamedAndRemoveUntil(
-  //         context,
-  //         '/',
-  //         (Route<dynamic> route) => false,
-  //       );
-
-  //       print("done");
-  //     } catch (e) {
-  //       print(e);
-  //     }
-  //   } catch (err) {
-  //     print("error");
-  //     print(err);
-  //   }
-  // }
 
   
 

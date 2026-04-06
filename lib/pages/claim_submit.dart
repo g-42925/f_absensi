@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -68,6 +69,9 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
         url,
         headers: {"Content-type": "application/json"},
         body: jsonEncode(payload),
+      )
+      .timeout(
+        const Duration(seconds: 3)
       );
 
       final res = jsonDecode(exc.body);
@@ -83,10 +87,61 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
           SnackBar(content: Text("Coba beberapa saat lagi")),
         );
       }
-    } catch (e) {
-      print(e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal mengajukan pengajuan!")),
+    } 
+    on TimeoutException catch(err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+    catch (e) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       );
     }
   }

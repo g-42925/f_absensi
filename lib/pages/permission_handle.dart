@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:f_absensi/providers/global_state.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -272,22 +272,30 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                           );
                         },
                       );
-                    } else {
+                    } 
+                    else {
                       final future = setLeave(widget.requestIzinId);
+                      
                       setState(() {
                         response = future;
                       });
 
                       try {
                         await future;
-                        ref
-                            .read(globalStateProvider.notifier)
-                            .addHistory("l-${widget.requestIzinId}");
-                      } catch (err) {
+                        
+                        ref.read(
+                          globalStateProvider.notifier
+                        )
+                        .addHistory(
+                          "l-${widget.requestIzinId}"
+                        );
+                      } 
+                      catch (err) {
                         // do something
                       }
                     }
-                  } else {
+                  } 
+                  else {
                     // cant click more
                   }
                 },

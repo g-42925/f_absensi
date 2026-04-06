@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -18,6 +19,7 @@ import '../env/env.dart';
 import '../providers/global_state.dart';
 
 class TaskEndPage extends ConsumerStatefulWidget {
+  
   final CameraDescription camera;
   final Future<Map<String, double>> coord;
 
@@ -28,8 +30,8 @@ class TaskEndPage extends ConsumerStatefulWidget {
 }
 
 class _TaskEndPageState extends ConsumerState<TaskEndPage> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+  CameraController? _controller;
+  Future<void>? _cameraFuture;
   final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
@@ -57,17 +59,14 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
   bool clicked = false;
 
   @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose(); 
+  }
+
+  @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
-    _initializeControllerFuture = _controller.initialize();
-    
-    _future = Future.wait([
-      _initializeControllerFuture,
-    ])
-    .then((value) {
-      return value;
-    });
   }
 
   Future<dynamic> requestLocation() async{
@@ -154,7 +153,7 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
       final state = ref.read(globalStateProvider);
       final other = state.other;
       final company = state.company;
-      final img = await _controller.takePicture();
+      final img = await _controller!.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
       final target = response['results'][0];
@@ -240,6 +239,9 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
         url,
         headers: headers,
         body: jsonEncode(params),
+      )
+      .timeout(
+        const Duration(seconds: 3)
       );
 
       final xResponse = jsonDecode(xRequest.body);
@@ -301,9 +303,38 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
         })();
       }
     } 
-    catch (err) {
-      print("error");
-      print(err);
+    on TimeoutException catch (err) {
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
     }
   }
 
@@ -398,7 +429,7 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
             child: SizedBox(
               width: 300,
               height: 300,
-              child: CameraPreview(_controller),
+              child: CameraPreview(_controller!),
             ),
           ),
         ),
@@ -488,13 +519,18 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
       ),
 			data: (position){
 				WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted){
+          if(mounted && (latitude != position.latitude || longitude != position.longitude)){
 					  setState(() {
               latitude = position.latitude;
               longitude = position.longitude;
             });
 					}
         });
+
+        if (_controller == null) {
+          _controller = CameraController(widget.camera, ResolutionPreset.high);
+          _cameraFuture = _controller!.initialize();
+        }
 
         return Scaffold(
           appBar: !preview
@@ -507,7 +543,7 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
             )
             : null,
           body: FutureBuilder(
-            future: _future,
+            future: _cameraFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done) {
                 return preview ? setPreview(args['task_id']) : setCamera(args['task_id']);

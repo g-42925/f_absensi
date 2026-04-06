@@ -122,7 +122,14 @@ class _BreakPageState extends ConsumerState<BreakPage> {
     final params = {'jam_istirahat': now, 'pegawai_id': employeeId};
 
     try {
-      await http.post(url, headers: headers, body: jsonEncode(params));
+      await http.post(
+        url, 
+        headers: headers, 
+        body: jsonEncode(params)
+      )
+      .timeout(
+        const Duration(seconds: 3)
+      );
 
       ref.read(globalStateProvider.notifier).breakStart();
 
@@ -131,8 +138,62 @@ class _BreakPageState extends ConsumerState<BreakPage> {
         '/',
         (Route<dynamic> route) => false,
       );
-    } catch (e) {
-      print(e);
+    }
+    on TimeoutException catch (err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+    catch (err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
     }
   }
 

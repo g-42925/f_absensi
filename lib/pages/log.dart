@@ -23,16 +23,15 @@ class _LogPageState extends ConsumerState<LogPage>{
     final other = globalState.other;
     Uri url = Uri.parse("${Env.api}/api/mobile/log/${other.pegawaiId}");
 
-    var response = http.get(url);
-
     try {
-      await response;
+      return await http.get(url).timeout(const Duration(seconds: 3));
     } 
-    catch (e) {
-      print(e);
+    on TimeoutException catch(err) {
+      throw Error();
     }
-
-    return response;
+    catch (err) {
+      throw Error();
+    }
   }
 
   Future<void> fetch() async {
@@ -52,6 +51,10 @@ class _LogPageState extends ConsumerState<LogPage>{
 
   @override Widget build(BuildContext ctx){
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: fetch,
+        child: const Icon(Icons.refresh),
+      ),
       body:SafeArea(
 				child:SingleChildScrollView(
 					child:Padding(
@@ -63,7 +66,34 @@ class _LogPageState extends ConsumerState<LogPage>{
 									return Center(child: CircularProgressIndicator());
 								} 
 								if (snapshot.hasError) {
-									return Center(child: Text("something went wrong"));
+									WidgetsBinding.instance.addPostFrameCallback((_) {
+										showModalBottomSheet(
+											context: context,
+											backgroundColor: Colors.transparent,
+											builder: (_) => Container(
+												margin: EdgeInsets.all(16),
+												padding: EdgeInsets.all(16),
+												decoration: BoxDecoration(
+													color: Colors.red,
+													borderRadius: BorderRadius.circular(12),
+												),
+												child: Row(
+													children: [
+														Icon(Icons.error, color: Colors.white),
+														SizedBox(width: 10),
+														Expanded(
+															child: Text(
+																"Request timeout or something went wrong",
+																style: TextStyle(color: Colors.white),
+															),
+														),
+													],
+												),
+											),
+										);
+									});
+
+									return SizedBox();
 								}
 								else{
 									final response = snapshot.data!;

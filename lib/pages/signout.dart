@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -237,6 +238,9 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
           url,
           headers: headers,
           body: jsonEncode(params),
+        )
+        .timeout(
+          const Duration(seconds: 3)
         );
 
         print(xRequest.body);
@@ -337,8 +341,71 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
         );
       }
     } 
+    on TimeoutException catch (err) {
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
+    }
     catch (err) {
-      // do something
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
     }
   }
 

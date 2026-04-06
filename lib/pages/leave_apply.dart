@@ -9,6 +9,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http_parser/http_parser.dart'; // <-- MediaType
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 
 
 class LeaveApplyPage extends ConsumerStatefulWidget {
@@ -140,74 +141,71 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
     };
 
     try {
-      await http.post(url, headers: headers, body: jsonEncode(params));
-      Navigator.pushReplacementNamed(context, '/');
+      await http.post(
+        url, 
+        headers: headers, 
+        body: jsonEncode(params)
+      )
+      .timeout(
+        const Duration(seconds: 3)
+      );
+
+      Navigator.pushReplacementNamed(
+        context, '/'
+      );
+    } 
+    on TimeoutException catch(err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Request timeout",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     } 
     catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("gagal mengajukan cuti!"),
-          duration: Duration(seconds: 2),
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "gagal mengajukan cuti!",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
-
-    // if (d.inDays + 1 > quota.toDouble()) {
-    //   showModalBottomSheet(
-    //     context: context,
-    //     isScrollControlled: true, // supaya bisa atur tinggi
-    //     shape: const RoundedRectangleBorder(
-    //       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    //     ),
-    //     builder: (context) {
-    //       return FractionallySizedBox(
-    //         widthFactor: 1.0,
-    //         heightFactor: 0.5, // setengah layar
-    //         child: Padding(
-    //           padding: const EdgeInsets.all(20),
-    //           child: Column(
-    //             mainAxisAlignment: MainAxisAlignment.center,
-    //             children: [
-    //               const Icon(Icons.error_outline, color: Colors.red, size: 60),
-    //               const SizedBox(height: 20),
-    //               Text(
-    //                 "Tidak bisa melebihi sisa jumlah cuti",
-    //                 textAlign: TextAlign.center,
-    //                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-    //               ),
-    //               const SizedBox(height: 8),
-    //               const Text(
-    //                 'Periksa kembali',
-    //                 textAlign: TextAlign.center,
-    //                 style: TextStyle(fontSize: 16, color: Colors.black54),
-    //               ),
-    //             ],
-    //           ),
-    //         ),
-    //       );
-    //     },
-    //   );
-    // } else {
-    //   final params = {
-    //     'company_id': company.id,
-    //     'tanggal_request': xTanggalMulai,
-    //     'tanggal_request_end': xTanggalSelesai,
-    //     'catatan_awal': _reasonController.text,
-    //     'pegawai_id': other.pegawaiId,
-    //   };
-
-    //   try {
-    //     await http.post(url, headers: headers, body: jsonEncode(params));
-    //     Navigator.pushReplacementNamed(context, '/');
-    //   } catch (e) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(
-    //         content: Text("gagal mengajukan cuti!"),
-    //         duration: Duration(seconds: 2),
-    //       ),
-    //     );
-    //   }
-    // }
   }
 
   @override

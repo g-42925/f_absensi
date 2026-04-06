@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'dart:async';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -26,10 +27,20 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;
     Uri url = Uri.parse("${Env.api}/api/mobile/leavelist/${other.pegawaiId}");
+       
+    try {
+      return await http.get(url).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
 
-    final leaveList = http.get(url);
+    // final leaveList = http.get(url);
 
-    return leaveList;
+    // return leaveList;
   }
 
   DateTime makeLimit(List<String> start, int l) {
@@ -63,11 +74,15 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;
     Uri url = Uri.parse("${Env.api}/api/mobile/cshList/${other.pegawaiId}");
-    print(url);
-
-    final cshLeaveList = http.get(url);
-
-    return cshLeaveList;
+    try {
+      return await http.get(url).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
   }
 
   Future<void> fetch() async {
@@ -247,6 +262,7 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
     final schedule = ref.read(globalStateProvider).schedule;
     final config = ref.read(globalStateProvider).config;
 
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -258,6 +274,15 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
             },
           ),
           title: const Text("Cuti"),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: () {
+                fetch();
+                fetchCsh();
+              },
+            ),
+          ],
           bottom: TabBar(
             controller: _tabController,
 
@@ -276,10 +301,53 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Center(child: CircularProgressIndicator());
-                      } else {
+                      } 
+                      else {
                         if (snapshot.hasError) {
-                          return Center(child: Text("something went wrong"));
-                        } else {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => Container(
+                                margin: EdgeInsets.all(16),
+                                padding: EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error, color: Colors.white),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        "Request timeout or something went wrong",
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          });
+
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text("Gagal memuat data"),
+                                SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    fetch();
+                                  },
+                                  child: Text("Coba Lagi"),
+                                )
+                              ],
+                            ),
+                          );
+                        } 
+                        else {
                           final response = snapshot.data!;
                           final data = jsonDecode(response.body);
                           if (data['success'] as bool) {
@@ -470,8 +538,50 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
                         return Center(child: CircularProgressIndicator());
                       } else {
                         if (snapshot.hasError) {
-                          return Center(child: Text("something went wrong"));
-                        } else {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => Container(
+                                margin: EdgeInsets.all(16),
+                                padding: EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error, color: Colors.white),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        "Request timeout or something went wrong",
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          });
+
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text("Gagal memuat data"),
+                                SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    fetchCsh();
+                                  },
+                                  child: Text("Coba Lagi"),
+                                )
+                              ],
+                            ),
+                          );
+                        } 
+                        else {
                           final response = snapshot.data!;
                           final data = jsonDecode(response.body);
                           if (data['success'] as bool) {

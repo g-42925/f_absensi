@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:io';
 import 'dart:ui';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geolocator/geolocator.dart';
@@ -110,8 +111,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   Future<ByteBuffer> captureScreen() async {
     await Future.delayed(Duration(milliseconds: 1000));
-    final boundary =
-        _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    final boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ImageByteFormat.png);
     return byteData?.buffer as ByteBuffer;
@@ -262,6 +262,9 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             url,
             headers: headers,
             body: jsonEncode(params),
+          )
+          .timeout(
+            const Duration(seconds: 3)
           );
 
           print(xRequest.body);
@@ -430,9 +433,71 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         );
       }
     } 
+    on TimeoutException catch (err) {
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout, coba beberapa saat lagi",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
+    }
     catch (err) {
-      print("error");
-      print(err);
+      Navigator.pop(context);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      setState(() {
+        preview = false;
+        clicked = false;
+      });
     }
   }
 

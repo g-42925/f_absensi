@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'dart:async';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -54,16 +54,73 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
     final headers = {"Content-type": "application/json"};
 
     try {
-      final exc = await http.get(url, headers: headers);
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("gagal menghapus pengecualian!"),
-          duration: Duration(seconds: 2),
-        ),
+      await http.get(
+        url, 
+        headers: headers
+      )
+      .timeout( 
+        const Duration(seconds: 3)
       );
-    } finally {}
+      Navigator.pop(
+        context
+      );
+    } 
+    on TimeoutException catch(err) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout or something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      });
+    }
+    catch (e) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout or something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      });
+    } 
   }
 
   void _submitForm(String pegawaiId, Map<String, dynamic> args) async {
@@ -76,21 +133,17 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
         : args['date'];
     final type = selectedValue ?? args['type'];
 
-    if ((_formKey.currentState!.validate() && _selectedDate != null) ||
-        args != null) {
+    if ((_formKey.currentState!.validate() && _selectedDate != null) || args != null) {
       if (_image != null) {
         final file = File(_image!.path);
-        final fileName =
-            '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
         final supabase = Supabase.instance.client;
 
         await supabase.storage.from('storage').upload(fileName, file);
 
         final excType = selectedValue ?? args['type'];
 
-        final uploaded = supabase.storage
-            .from('storage')
-            .getPublicUrl(fileName);
+        final uploaded = supabase.storage.from('storage').getPublicUrl(fileName);
 
         final exceptionData = {
           "date": date,
@@ -105,33 +158,101 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
             url,
             headers: headers,
             body: jsonEncode(exceptionData),
+          )
+          .timeout(
+            const Duration(seconds: 3)
           );
 
           if (jsonDecode(exc.body)['success']) {
             Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("coba beberapa saat lagi"),
-                duration: Duration(seconds: 2),
+          } 
+          else {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (_) => Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Request timeout or something went wrong",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
 
             Navigator.pop(context);
           }
-        } catch (e) {
-          print(e);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("gagal mengajukan pengecualian!"),
-              duration: Duration(seconds: 2),
-            ),
+        } 
+        on TimeoutException catch(err) {
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (context) {
+              return Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Request timeout, coba beberapa saat lagi",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
-
-          Navigator.pop(context);
         }
-      } else {
+        catch (e) {
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (context) {
+              return Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "something went wrong",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        }
+      } 
+      else {
         final excType = selectedValue ?? args['type'];
 
         final exceptionData = {
@@ -207,8 +328,7 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     final globalState = ref.read(globalStateProvider);
     final other = globalState.other;

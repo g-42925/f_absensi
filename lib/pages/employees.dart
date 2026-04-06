@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:f_absensi/env/env.dart';
-import 'package:f_absensi/providers/global_state.dart';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -23,16 +24,15 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
       "${Env.api}/api/mobile/employeeList/${other.pegawaiId}",
     );
 
-    final r = http.get(url);
-
     try {
-      await r;
-    } catch (e) {
-      print("error disini");
-      print(e);
+      return await http.get(url).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
     }
-
-    return r;
+    catch (err) {
+      throw Error();
+    }
   }
 
   Future<void> fetch() async {
@@ -63,14 +63,40 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
-                } else {
+                } 
+                else {
                   if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        "something went wrong or no notification exist",
-                      ),
-                    );
-                  } else {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => Container(
+                        margin: EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error, color: Colors.white),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  "Request timeout or something went wrong",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          )
+                        ),
+                      );
+                    }); 
+
+
+                    return SizedBox();
+                  } 
+                  else {
                     final response = snapshot.data!;
                     final data = jsonDecode(response.body);
                     return ListView.builder(

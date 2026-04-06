@@ -32,12 +32,14 @@ class _DoneTaskPageState extends ConsumerState<DoneTaskPage> {
     var response = http.get(url);
 
     try {
-      await response;
-    } catch (e) {
-      print(e);
+      return await http.get(url).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
     }
-
-    return response;
+    catch (err) {
+      throw Error();
+    }
   }
 
   Future<void> pickDate(BuildContext context) async {
@@ -83,8 +85,37 @@ class _DoneTaskPageState extends ConsumerState<DoneTaskPage> {
                         return Center(child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError) {
-                        return Center(child: Text("something went wrong"));
-                      } else {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => Container(
+                            margin: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "Request timeout or something went wrong",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            ),
+                          );
+                        }); 
+
+
+                        return SizedBox();
+                      } 
+                      else {
                         final response = snapshot.data!;
                         final data = jsonDecode(response.body);
                         if (data['success'] as bool) {
