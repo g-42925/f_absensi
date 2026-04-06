@@ -28,11 +28,12 @@ class SignOutPage extends ConsumerStatefulWidget {
 }
 
 class _SignOutPageState extends ConsumerState<SignOutPage> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+  CameraController? _controller;
+  Future<void>? _cameraFuture;
   final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
+
 
   late Future<List<dynamic>> _future;
 
@@ -68,14 +69,25 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
-    _initializeControllerFuture = _controller.initialize();
-    _future = Future.wait([
-      _initializeControllerFuture,
-    ])
-    .then((value) {
-      return value;
-    });
+  }
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _controller = CameraController(widget.camera, ResolutionPreset.high);
+  //   _initializeControllerFuture = _controller.initialize();
+  //   _future = Future.wait([
+  //     _initializeControllerFuture,
+  //   ])
+  //   .then((value) {
+  //     return value;
+  //   });
+  // }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose(); 
   }
 
   bool isOnOffice(double latitude, double longitude) {
@@ -136,7 +148,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
       final now = DateTime.now(); // ambil tanggal sekarang
 
-      final img = await _controller.takePicture();
+      final img = await _controller!.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
       final target = response['results'][0];
@@ -440,7 +452,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
             child: SizedBox(
               width: 300,
               height: 300,
-              child: CameraPreview(_controller),
+              child: CameraPreview(_controller!),
            ),
           ),
         ),
@@ -518,66 +530,112 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
   @override Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final locs = ref.watch(locationProvider);
-    
+
     return locs.when(
-			loading: () => const Scaffold(
+      loading: () => const Scaffold(
         body: Center(child: Text('please wait')),
       ),
-			error: (err, _) => Scaffold(
+      error: (err, _) => Scaffold(
         body: Center(child: Text('Gagal mengambil lokasi\n$err')),
       ),
-			data: (position){
-				WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted){
+      data: (position){
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if(mounted && (latitude != position.latitude || longitude != position.longitude)){
 					  setState(() {
               latitude = position.latitude;
               longitude = position.longitude;
             });
 					}
         });
-        return locs.when(
-			    loading: () => const Scaffold(
-            body: Center(child: Text('please wait')),
-          ),
-			    error: (err, _) => Scaffold(
-            body: Center(child: Text('Gagal mengambil lokasi\n$err')),
-          ),
-		 	    data: (position){
-				    WidgetsBinding.instance.addPostFrameCallback((_) {
-              if(mounted){
-					      setState(() {
-                  latitude = position.latitude;
-                  longitude = position.longitude;
-                });
-				     	}
-            });
 
-            return Scaffold(
-              appBar: !preview
-              ? 
-              AppBar(
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                )
-              : 
-              null,
-              body: FutureBuilder(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.done) {
-                      return preview ? setPreview() : setCamera(args);
-                  }  
-                  else {
-                    return Center(child: CircularProgressIndicator());
-                  }
-                },
+        if (_controller == null) {
+          _controller = CameraController(widget.camera, ResolutionPreset.high);
+          _cameraFuture = _controller!.initialize();
+        }
+
+        return Scaffold(
+          appBar: !preview
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
               ),
-            );
-	        }
-		    );
-	    }
-		);
+            )
+          : null,
+          body: FutureBuilder(
+            future: _cameraFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                  return preview ? setPreview() : setCamera(args);
+              }  
+              else {
+                return Center(child: CircularProgressIndicator());
+              }
+            },
+          ),        
+        );
+      }
+    );
+    
+    // return locs.when(
+		// 	loading: () => const Scaffold(
+    //     body: Center(child: Text('please wait')),
+    //   ),
+		// 	error: (err, _) => Scaffold(
+    //     body: Center(child: Text('Gagal mengambil lokasi\n$err')),
+    //   ),
+		// 	data: (position){
+		// 		WidgetsBinding.instance.addPostFrameCallback((_) {
+    //       if(mounted){
+		// 			  setState(() {
+    //           latitude = position.latitude;
+    //           longitude = position.longitude;
+    //         });
+		// 			}
+    //     });
+    //     return locs.when(
+		// 	    loading: () => const Scaffold(
+    //         body: Center(child: Text('please wait')),
+    //       ),
+		// 	    error: (err, _) => Scaffold(
+    //         body: Center(child: Text('Gagal mengambil lokasi\n$err')),
+    //       ),
+		//  	    data: (position){
+		// 		    WidgetsBinding.instance.addPostFrameCallback((_) {
+    //           if(mounted){
+		// 			      setState(() {
+    //               latitude = position.latitude;
+    //               longitude = position.longitude;
+    //             });
+		// 		     	}
+    //         });
+
+    //         return Scaffold(
+    //           appBar: !preview
+    //           ? 
+    //           AppBar(
+    //               leading: IconButton(
+    //                 icon: const Icon(Icons.arrow_back),
+    //                 onPressed: () => Navigator.pop(context),
+    //               ),
+    //             )
+    //           : 
+    //           null,
+    //           body: FutureBuilder(
+    //             future: _future,
+    //             builder: (context, snapshot) {
+    //               if (snapshot.connectionState == ConnectionState.done) {
+    //                   return preview ? setPreview() : setCamera(args);
+    //               }  
+    //               else {
+    //                 return Center(child: CircularProgressIndicator());
+    //               }
+    //             },
+    //           ),
+    //         );
+	  //       }
+		//     );
+	  //   }
+		// );
   }
 }

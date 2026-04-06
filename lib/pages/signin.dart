@@ -28,12 +28,11 @@ class SignInPage extends ConsumerStatefulWidget {
 }
 
 class _SignInPageState extends ConsumerState<SignInPage> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+  CameraController? _controller;
+  Future<void>? _cameraFuture;
   final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
-  late Future<List<dynamic>> _future;
 
   final faceDetector = FaceDetector(
     options: FaceDetectorOptions(
@@ -76,7 +75,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
 	@override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     faceDetector.close();
     super.dispose(); 
   }
@@ -84,15 +83,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
-    _initializeControllerFuture = _controller.initialize();
-    
-    _future = Future.wait([
-      _initializeControllerFuture,
-    ])
-    .then((value) {
-      return value;
-    });
   }
 
   double toRad(double degree) {
@@ -174,7 +164,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       final state = ref.read(globalStateProvider);
       final other = state.other;
       final company = state.company;
-      final img = await _controller.takePicture();
+      final img = await _controller!.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
       final target = response['results'][0];
@@ -537,7 +527,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 						child: SizedBox(
 							width: 300,
 							height: 300,
-							child: CameraPreview(_controller),
+							child: CameraPreview(_controller!),
 						),
 					),
 				),
@@ -626,13 +616,18 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       ),
 			data: (position){
 				WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted){
+          if(mounted && (latitude != position.latitude || longitude != position.longitude)){
 					  setState(() {
               latitude = position.latitude;
               longitude = position.longitude;
             });
 					}
-       });
+        });
+
+        if (_controller == null) {
+          _controller = CameraController(widget.camera, ResolutionPreset.high);
+          _cameraFuture = _controller!.initialize();
+        }
 
         return Scaffold(
           appBar: !preview
@@ -644,7 +639,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             )
           : null,
           body: FutureBuilder(
-            future: _future,
+            future: _cameraFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done) {
                   return preview ? setPreview() : setCamera(args);

@@ -47,144 +47,148 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         body: jsonEncode(credential),
       );
 
-      print(response.body);
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
 
-      // if (response.statusCode == 200) {
-      final responseBody = jsonDecode(response.body);
+        print(responseBody['result']);
+      
+        final String workSystem = responseBody['result']['workSystem'];
 
-      final String workSystem = responseBody['result']['workSystem'];
-
-      final start = workSystem == "shift"
+        final start = workSystem == "shift"
           ? responseBody['result']['clock_in']
           : responseBody['result']['jam_masuk'];
 
-      final nextStart = workSystem == "shift"
+        final nextStart = workSystem == "shift"
           ? responseBody['result']['clock_in']
           : responseBody['result']['next']['jam_masuk'];
 
-      final finish = workSystem == "shift"
+        final finish = workSystem == "shift"
           ? responseBody['result']['clock_out']
           : responseBody['result']['jam_pulang'];
-      final workDay = workSystem == "shift"
+      
+        final workDay = workSystem == "shift"
           ? responseBody['result']['workDay']
           : responseBody['result']['workDay'];
-      final workSystemName = workSystem == "shift"
+        final workSystemName = workSystem == "shift"
           ? responseBody['result']['workSystemName']
           : responseBody['result']['workSystemName'];
 
-      final breakStart = workSystem == "shift"
+        final breakStart = workSystem == "shift"
           ? responseBody['result']['break']
           : responseBody['result']['jam_istirahat'];
 
-      final breakEnd = workSystem == "shift"
+        final breakEnd = workSystem == "shift"
           ? responseBody['result']['after_break']
           : responseBody['result']['selesai_istirahat'];
 
-      final Company company = (
-        id: responseBody['result']['company_id'] ?? '',
-        name: responseBody['result']['company_name'] ?? '',
-        logo: responseBody['result']['logo'] ?? '',
-        address: responseBody['result']['address'] ?? '',
-        salaryDate: int.tryParse(responseBody['result']['salary_date']?.toString() ?? '0') ?? 0,
-      );
+        final Company company = (
+          id: responseBody['result']['company_id'] ?? '',
+          name: responseBody['result']['company_name'] ?? '',
+          logo: responseBody['result']['logo'] ?? '',
+          address: responseBody['result']['address'] ?? '',
+          salaryDate: int.tryParse(responseBody['result']['salary_date']?.toString() ?? '0') ?? 0,
+        );
 
-      final Schedule schedule = (
-        start: start ?? '',
-        nextStart: nextStart ?? '',
-        finish: finish ?? '',
-        breakStart: breakStart,
-        breakFinish: breakEnd,
-        workSystem: workSystem,
-        workSystemName: workSystemName,
-      );
+        final Schedule schedule = (
+          start: start ?? '',
+          nextStart: nextStart ?? '',
+          finish: finish ?? '',
+          breakStart: breakStart,
+          breakFinish: breakEnd,
+          workSystem: workSystem,
+          workSystemName: workSystemName,
+        );
 
-      final locationsRaw = responseBody['result']['locations'] ?? [];
+        final locationsRaw = responseBody['result']['locations'] ?? [];
 
-      final Iterable<Map<String, dynamic>> location =
+        final Iterable<Map<String, dynamic>> location =
           (locationsRaw as List).map((l) {
-        return {
-          'lat': l['garis_lintang']?.toString() ?? '',
-          'lon': l['garis_bujur']?.toString() ?? '',
-          'address': l['alamat_lokasi'] ?? '',
-          'locationName': l['nama_lokasi'] ?? '',
-        };
-      });
+          return {
+            'lat': l['garis_lintang']?.toString() ?? '',
+            'lon': l['garis_bujur']?.toString() ?? '',
+            'address': l['alamat_lokasi'] ?? '',
+            'locationName': l['nama_lokasi'] ?? '',
+          };
+        });
 
-      final Other other = (
-        pegawaiId: responseBody['result']['pegawai_id'] ?? '',
-        namaPegawai: responseBody['result']['nama_pegawai'] ?? '',
-        nomorPegawai: responseBody['result']['nomor_pegawai'] ?? '',
-        emailPegawai: responseBody['result']['email_pegawai'] ?? '',
-        fotoPegawai: responseBody['result']['foto_pegawai'] ?? '',
-        position: responseBody['result']['position'] ?? '',
-        status: responseBody['result']['status_pegawai'] ?? '',
-      );
+        final Other other = (
+          pegawaiId: responseBody['result']['pegawai_id'] ?? '',
+          namaPegawai: responseBody['result']['nama_pegawai'] ?? '',
+          nomorPegawai: responseBody['result']['nomor_pegawai'] ?? '',
+          emailPegawai: responseBody['result']['email_pegawai'] ?? '',
+          fotoPegawai: responseBody['result']['foto_pegawai'] ?? '',
+          position: responseBody['result']['position'] ?? '',
+          status: responseBody['result']['status_pegawai'] ?? '',
+        );
 
-      final Holiday holiday = (
-        holiday: responseBody['result']['holiday'] ?? false,
-        workDay: workDay,
-      );
-
-
-      final Status status = (signedIn: false, signedOut: false);
-
-      final Auth auth = (
-        loggedIn: true,
-        date: DateTime.now().toIso8601String(),
-      );
-
-      final OverWork overWork = (onOverWork: false);
-
-      final ffocia = responseBody['result']['ffocia'] == "1" ? true : false;
-      final ffocoa = responseBody['result']['ffocoa'] == "1" ? true : false;
-
-      final coLimit = int.tryParse(responseBody['result']['co_limit']?.toString() ?? '0') ?? 0;
-
-      final ciLimit = int.tryParse(responseBody['result']['ci_limit']?.toString() ?? '0') ?? 0;
-
-      final tolerance = int.tryParse(responseBody['result']['tolerance']?.toString() ?? '0') ?? 0;
+        final Holiday holiday = (
+          holiday: responseBody['result']['holiday'] ?? false,
+          workDay: workDay,
+        );
 
 
-      final Config config = (
-        ffocia: ffocia,
-        ffocoa: ffocoa,
-        coLimit: coLimit,
-        ciLimit: ciLimit,
-        tolerance: tolerance,
-      );
+        final Status status = (signedIn: false, signedOut: false);
 
-      final XPresence presence = (
-        ci:responseBody['result']['presence']['jam_masuk'],
-        co:responseBody['result']['presence']['jam_keluar'],
-      );
+        final Auth auth = (
+          loggedIn: true,
+          date: DateTime.now().toIso8601String(),
+        );
 
-      ref.read(globalStateProvider.notifier).login((
-        auth: auth,
-        status: status,
-        company: company,
-        schedule: schedule,
-        permission: (id: 0),
-        location: (list: location.toList()),
-        position: (lat: 0, lon: 0),
-        other: other,
-        history: [],
-        coordinate: (lat: 0, lon: 0),
-        holiday: holiday,
-        breakInfo: (onBreak: false, startFrom: ''),
-        overWork: overWork,
-        config: config,
-        task: (started: [], finished: []),
-        exception: (list: []),
-        csh: (allowed: false),
-        reminder: (lastLat:0,lastLon:0),
-        presence: presence
-      ));
+        final OverWork overWork = (onOverWork: false);
 
-      Navigator.pushReplacementNamed(context, '/');
-    } catch (e) {
+        final ffocia = responseBody['result']['ffocia'] == "1" ? true : false;
+        final ffocoa = responseBody['result']['ffocoa'] == "1" ? true : false;
+
+        final coLimit = int.tryParse(responseBody['result']['co_limit']?.toString() ?? '0') ?? 0;
+
+        final ciLimit = int.tryParse(responseBody['result']['ci_limit']?.toString() ?? '0') ?? 0;
+
+        final tolerance = int.tryParse(responseBody['result']['tolerance']?.toString() ?? '0') ?? 0;
+
+
+        final Config config = (
+          ffocia: ffocia,
+          ffocoa: ffocoa,
+          coLimit: coLimit,
+          ciLimit: ciLimit,
+          tolerance: tolerance,
+        );
+
+        final XPresence presence = (
+          ci:responseBody['result']['jam_masuk'],
+          co:responseBody['result']['jam_pulang'],
+        );
+
+        ref.read(globalStateProvider.notifier).login((
+          auth: auth,
+          status: status,
+          company: company,
+          schedule: schedule,
+          permission: (id: 0),
+          location: (list: location.toList()),
+          position: (lat: 0, lon: 0),
+          other: other,
+          history: [],
+          coordinate: (lat: 0, lon: 0),
+          holiday: holiday,
+          breakInfo: (onBreak: false, startFrom: ''),
+          overWork: overWork,
+          config: config,
+          task: (started: [], finished: []),
+          exception: (list: []),
+          csh: (allowed: false),
+          reminder: (lastLat:0,lastLon:0),
+          presence: presence
+        ));
+
+        Navigator.pushReplacementNamed(context, '/');
+      } 
+    }
+    catch (e) {
       print("error");
       print(e);
-    } finally {
+    }  
+    finally {
       setState(() {
         loading = false;
       });

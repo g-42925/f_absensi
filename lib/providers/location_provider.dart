@@ -1,8 +1,17 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:location/location.dart' as loc;
+
 final locationProvider = FutureProvider<Position>((ref) async {
   // 1. cek GPS
   bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  if (!serviceEnabled) throw Exception('GPS is not enabled');
-  
+  if (!serviceEnabled) {
+    loc.Location location = loc.Location();
+    serviceEnabled = await location.requestService();
+    if (!serviceEnabled) {
+      throw Exception('GPS is not enabled');
+    }
+  }
 
   // 2. cek permission
   LocationPermission permission = await Geolocator.checkPermission();
@@ -16,16 +25,16 @@ final locationProvider = FutureProvider<Position>((ref) async {
   // 3. retry
   int retry = 0;
 
-  while (retry < 3) {
+  while (retry < 5) {
     try {
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: LocationAccuracy.best,
         timeLimit: const Duration(seconds: 5),
       );
     } 
     catch (e) {
       retry++;
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 2));
     }
   }
 
