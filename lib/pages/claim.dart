@@ -22,7 +22,7 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
     Uri url = Uri.parse("${Env.api}/api/mobile/claim/${other.pegawaiId}");
 
     try {
-      return await http.get(url).timeout(const Duration(seconds: 3));
+      return await http.get(url).timeout(const Duration(seconds: 30));
     } 
     on TimeoutException catch(err) {
       throw Error();
@@ -64,7 +64,7 @@ class _ExceptionPageState extends ConsumerState<ClaimPage> {
     final url = Uri.parse("${Env.api}/api/mobile/reimburseList/$id");
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 30));
       final result = jsonDecode(response.body);
 
       Navigator.pushNamed(

@@ -59,7 +59,7 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
         headers: headers
       )
       .timeout( 
-        const Duration(seconds: 3)
+        const Duration(seconds: 30)
       );
       Navigator.pop(
         context
@@ -160,7 +160,7 @@ class _ExceptionEditPageState extends ConsumerState<ExceptionEditPage> {
             body: jsonEncode(exceptionData),
           )
           .timeout(
-            const Duration(seconds: 3)
+            const Duration(seconds: 30)
           );
 
           if (jsonDecode(exc.body)['success']) {

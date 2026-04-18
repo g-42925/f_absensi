@@ -71,7 +71,7 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
         body: jsonEncode(payload),
       )
       .timeout(
-        const Duration(seconds: 3)
+        const Duration(seconds: 30)
       );
 
       final res = jsonDecode(exc.body);

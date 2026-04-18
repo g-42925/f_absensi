@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:camera/camera.dart';
@@ -6,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/global_state.dart';
 import '../env/env.dart';
-import 'dart:async';
 
 class  LogPage extends ConsumerStatefulWidget{
   const LogPage({super.key});
@@ -24,7 +24,7 @@ class _LogPageState extends ConsumerState<LogPage>{
     Uri url = Uri.parse("${Env.api}/api/mobile/log/${other.pegawaiId}");
 
     try {
-      return await http.get(url).timeout(const Duration(seconds: 3));
+      return await http.get(url).timeout(const Duration(seconds: 30));
     } 
     on TimeoutException catch(err) {
       throw Error();

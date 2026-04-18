@@ -53,7 +53,7 @@ class _TaskEditPageState extends ConsumerState<TaskEditPage> {
           body: jsonEncode(exceptionData),
         )
         .timeout(
-          const Duration(seconds: 3)
+          const Duration(seconds: 30)
         );
 
         if (jsonDecode(exc.body)['success']) {
@@ -63,7 +63,7 @@ class _TaskEditPageState extends ConsumerState<TaskEditPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text("coba beberapa saat lagi"),
-              duration: Duration(seconds: 10),
+              duration: Duration(seconds: 30),
             ),
           );
 

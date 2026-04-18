@@ -175,7 +175,7 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
       final formatted = DateFormat('yyyy-MM-dd').format(now);
       final formattedSecond = DateFormat('HH:mm:ss').format(now);
       final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
-      final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
+      final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
 
       loc['address'] = target['formatted_address'];
       loc['subDistrict'] = addressComponents[3]['short_name'];
@@ -253,7 +253,7 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
         body: jsonEncode(params),
       )
       .timeout(
-        const Duration(seconds: 3)
+        const Duration(seconds: 30)
       );
 
 

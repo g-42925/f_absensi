@@ -56,7 +56,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             body: jsonEncode(overWorkData),
           )
           .timeout(
-            const Duration(seconds: 3)
+            const Duration(seconds: 30)
           );
 
           if (jsonDecode(exc.body)['success']) {

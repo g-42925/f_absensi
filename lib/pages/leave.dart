@@ -29,7 +29,7 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
     Uri url = Uri.parse("${Env.api}/api/mobile/leavelist/${other.pegawaiId}");
        
     try {
-      return await http.get(url).timeout(const Duration(seconds: 3));
+      return await http.get(url).timeout(const Duration(seconds: 30));
     } 
     on TimeoutException catch(err) {
       throw Error();
@@ -75,7 +75,7 @@ class _LeavePageState extends ConsumerState<LeavePage> with SingleTickerProvider
     final other = globalState.other;
     Uri url = Uri.parse("${Env.api}/api/mobile/cshList/${other.pegawaiId}");
     try {
-      return await http.get(url).timeout(const Duration(seconds: 3));
+      return await http.get(url).timeout(const Duration(seconds: 30));
     } 
     on TimeoutException catch(err) {
       throw Error();

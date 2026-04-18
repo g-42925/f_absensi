@@ -101,7 +101,7 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
       final formatted = DateFormat('yyyy-MM-dd').format(now);
       final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
       final formattedSecond = DateFormat('HH:mm:ss').format(now);
-      final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
+      final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
       final limit = globalState.schedule.breakFinish;
 
 
@@ -181,7 +181,7 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         body: jsonEncode(params),
       )
       .timeout(
-        const Duration(seconds: 3)
+        const Duration(seconds: 30)
       );
 
       final xResponse = jsonDecode(xRequest.body);

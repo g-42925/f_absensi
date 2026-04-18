@@ -65,6 +65,24 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
     fetch();
   }
 
+  Future<DateTime?> getTime() async{
+    try{
+      final response = await http.get(Uri.parse("https://time.now/developer/api/ip")).timeout(
+        Duration(seconds: 30)
+      );
+      if(response.statusCode == 200){
+        final data = jsonDecode(response.body);
+        return DateTime.parse(data['datetime']);
+      }
+      else{
+        return null;
+      }
+    }
+    catch(e){
+      return null;
+    }
+  }
+
   DateTime makeLimit(List<String> start, int l) {
     final now = DateTime.now();
 
@@ -74,7 +92,10 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
       now.day,
       int.parse(start[0]),
       int.parse(start[1]),
-    ).add(Duration(minutes: l));
+    )
+    .add(
+      Duration(minutes: l)
+    );
 
     return limit;
   }
@@ -97,412 +118,530 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
           )
         ],
       ),
-      body: list != null
-          ? FutureBuilder(
-              future: list,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => Container(
-                        margin: EdgeInsets.all(16),
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error, color: Colors.white),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                "request timeout or something went wrong",
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ],
+      body: list != null ? FutureBuilder(
+        future: list,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                builder: (_) => Container(
+                  margin: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error, color: Colors.white),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "request timeout or something went wrong",
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
-                    );
-                  }); 
-                  return SizedBox();
-                } 
-                else {
-                  final response = snapshot.data!;
-                  final data = jsonDecode(response.body);
-                  if (data['success'] as bool) {
-                    return ListView.builder(
-                      itemCount: (data['result'] as List).length,
-                      itemBuilder: (context, index) {
-                        final item = (data['result'] as List)[index];
-                        return Card(
-                          margin: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                    ],
+                  ),
+                ),
+              );
+            }); 
+            return SizedBox();
+          } 
+          else {
+            final response = snapshot.data!;
+            final data = jsonDecode(response.body);
+            if (data['success'] as bool) {
+              return ListView.builder(
+                itemCount: (data['result'] as List).length,
+                itemBuilder: (context, index) {
+                  final item = (data['result'] as List)[index];
+                  return Card(
+                    margin: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    elevation: 3,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.event_note,
+                              color: getStatusColor(item['status'])['color'],
+                            ),
+                            title: Text(
+                              "Tanggal: ${item['date']}",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text("Reason: ${item['reason']}"),
                           ),
-                          elevation: 3,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: ListTile(
-                                  leading: Icon(
-                                    Icons.event_note,
-                                    color: getStatusColor(
-                                      item['status'],
-                                    )['color'],
+                        ),
+                        SizedBox(
+                          child: item['type'] == "Absen masuk" ? TextButton(
+                            child: Text("Presensi masuk"),
+                            onPressed: () async {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => Container(
+                                  margin: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  title: Text(
-                                    "Tanggal: ${item['date']}",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          "Time validation",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                              final time = await getTime();
+                              if (item['status'] == "1") {
+                                if (!status.signedIn) {
+                                  if (time!.isBefore(makeLimit(schedule.start.split(':'), config.tolerance + config.ciLimit))) {
+                                    if (time.isAfter(makeLimit(schedule.start.split(':'), 0).subtract(Duration(minutes: 60)))) {
+                                      Navigator.of(context).pop();
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/signin',
+                                        arguments: {'ffocia': true},
+                                      );
+                                    } 
+                                    else {
+                                      Navigator.of(context).pop();
+                                      showModalBottomSheet(
+                                        context: context,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (_) => Container(
+                                          margin: EdgeInsets.all(16),
+                                          padding: EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.error, color: Colors.white),
+                                              SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  "Request invalid",
+                                                  style: TextStyle(color: Colors.white),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                  else{
+                                    Navigator.of(context).pop();
+                                    showModalBottomSheet(
+                                      context: context,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => Container(
+                                        margin: EdgeInsets.all(16),
+                                        padding: EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.error, color: Colors.white),
+                                            SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                "Request invalid",
+                                                style: TextStyle(color: Colors.white),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } 
+                                else {
+                                  Navigator.of(context).pop();
+                                  showModalBottomSheet(
+                                    context: context,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (_) => Container(
+                                      margin: EdgeInsets.all(16),
+                                      padding: EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.error, color: Colors.white),
+                                          SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              "Request invalid",
+                                              style: TextStyle(color: Colors.white),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } 
+                              else {
+                                Navigator.of(context).pop();
+                                showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => Container(
+                                    margin: EdgeInsets.all(16),
+                                    padding: EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.error, color: Colors.white),
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            "Request invalid",
+                                            style: TextStyle(color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  subtitle: Text("Reason: ${item['reason']}"),
+                                );
+                              }
+                            },
+                          )
+                          : 
+                          SizedBox(),
+                        ),
+                        SizedBox(
+                          child: item['type'] == "Lainnya" ? TextButton(
+                            child: Text("Presensi masuk"),
+                            onPressed: () async {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => Container(
+                                  margin: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          "Time validation",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              SizedBox(
-                                child: item['type'] == "Absen masuk"
-                                    ? TextButton(
-                                        child: Text("Presensi masuk"),
-                                        onPressed: () {
-                                          if (item['status'] == "1") {
-                                            if (!status.signedIn) {
-                                              if (DateTime.now().isBefore(
-                                                makeLimit(
-                                                  schedule.start.split(':'),
-                                                  config.tolerance +
-                                                      config.ciLimit,
-                                                ),
-                                              )) {
-                                                if (DateTime.now().isAfter(
-                                                  makeLimit(
-                                                    schedule.start.split(':'),
-                                                    0,
-                                                  ).subtract(
-                                                    Duration(minutes: 60),
-                                                  ),
-                                                )) {
-                                                  Navigator.pushNamed(
-                                                    context,
-                                                    '/signin',
-                                                    arguments: {'ffocia': true},
-                                                  );
-                                                } else {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        "Can not do presence in now",
-                                                      ),
-                                                      duration: Duration(
-                                                        seconds: 2,
-                                                      ), // lama tampil
-                                                      backgroundColor: Colors
-                                                          .blue, // warna background
-                                                    ),
-                                                  );
-                                                }
-                                              } else {
-                                                showDialog<bool>(
-                                                  context: context,
-                                                  builder: (context) => AlertDialog(
-                                                    title: const Text(
-                                                      'Kamu sudah tidak bisa absen masuk',
-                                                    ),
-                                                    content: const Text(
-                                                      'Apakah kamu telah mengajukan pengecualian keterlambatan?',
-                                                    ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () => {
-                                                          Navigator.pop(
-                                                            context,
-                                                            false,
-                                                          ),
-                                                        },
-                                                        child: const Text(
-                                                          'Belum',
-                                                        ),
-                                                      ),
-                                                      TextButton(
-                                                        onPressed: () => {
-                                                          Navigator.pushNamed(
-                                                            context,
-                                                            '/signin',
-                                                            arguments: {
-                                                              'ffocia': true,
-                                                            },
-                                                          ),
-                                                        },
-                                                        child: const Text(
-                                                          'Sudah',
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
-                                            } else {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Kamu sudah absen",
-                                                  ),
-                                                  duration: Duration(
-                                                    seconds: 2,
-                                                  ), // lama tampil
-                                                  backgroundColor: Colors
-                                                      .blue, // warna background
-                                                ),
-                                              );
-                                            }
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'this exception is not approved yet',
-                                                ),
-                                                backgroundColor: Colors.blue,
-                                                duration: Duration(seconds: 2),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      )
-                                    : SizedBox(),
-                              ),
-                              SizedBox(
-                                child: item['type'] == "Lainnya"
-                                    ? TextButton(
-                                        child: Text("Presensi masuk"),
-                                        onPressed: () {
-                                          if (item['status'] == "1") {
-                                            if (!status.signedIn) {
-                                              if (DateTime.now().isBefore(
-                                                makeLimit(
-                                                  schedule.start.split(':'),
-                                                  config.tolerance +
-                                                      config.ciLimit,
-                                                ),
-                                              )) {
-                                                if (DateTime.now().isAfter(
-                                                  makeLimit(
-                                                    schedule.start.split(':'),
-                                                    0,
-                                                  ).subtract(
-                                                    Duration(minutes: 60),
-                                                  ),
-                                                )) {
-                                                  Navigator.pushNamed(
-                                                    context,
-                                                    '/signin',
-                                                    arguments: {'ffocia': true},
-                                                  );
-                                                } else {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        "Tunggu beberapa saat lagi",
-                                                      ),
-                                                      duration: Duration(
-                                                        seconds: 2,
-                                                      ), // lama tampil
-                                                      backgroundColor: Colors
-                                                          .blue, // warna background
-                                                    ),
-                                                  );
-                                                }
-                                              } else {
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  '/signin',
-                                                  arguments: {'ffocia': true},
-                                                );
-                                              }
-                                            } else {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Kamu sudah absen",
-                                                  ),
-                                                  duration: Duration(
-                                                    seconds: 2,
-                                                  ), // lama tampil
-                                                  backgroundColor: Colors
-                                                      .blue, // warna background
-                                                ),
-                                              );
-                                            }
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'this exception is not approved yet',
-                                                ),
-                                                backgroundColor: Colors.blue,
-                                                duration: Duration(seconds: 2),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      )
-                                    : SizedBox(),
-                              ),
-
-                              SizedBox(
-                                child: item['type'] == "Cuti pulang"
-                                    ? TextButton(
-                                        child: Text("Presensi setengah hari"),
-                                        onPressed: () {
-                                          if (item['status'] == "1") {
-                                            Navigator.pushNamed(
-                                              context,
-                                              '/signout',
-                                              arguments: {'csh': true},
-                                            );
-                                          } else {
-                                            SnackBar(
-                                              content: Text(
-                                                "Can not do presence out now",
-                                              ),
-                                              duration: Duration(
-                                                seconds: 2,
-                                              ), // lama tampil
-                                              backgroundColor: Colors
-                                                  .blue, // warna background
-                                            );
-                                          }
-                                        },
-                                      )
-                                    : SizedBox(),
-                              ),
-                              SizedBox(
-                                child: item['type'] == "Absen pulang"
-                                    ? TextButton(
-                                        child: Text("Presensi pulang"),
-                                        onPressed: () {
-                                          if (DateTime.now().isBefore(
-                                            makeLimit(
-                                              schedule.finish.split(':'),
-                                              config.coLimit,
-                                            ),
-                                          )) {
-                                            if (DateTime.now().isAfter(
-                                              makeLimit(
-                                                schedule.finish.split(':'),
-                                                0,
-                                              ),
-                                            )) {
-                                              if (item["status"] == "1") {
-                                                ref
-                                                    .read(
-                                                      globalStateProvider
-                                                          .notifier,
-                                                    )
-                                                    .fFOCOMakeAllowed();
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  '/signout',
-                                                  arguments: {'csh': false},
-                                                );
-                                              } else {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      "this exception is not approved yet",
-                                                    ),
-                                                    duration: Duration(
-                                                      seconds: 2,
-                                                    ), // lama tampil
-                                                    backgroundColor: Colors
-                                                        .blue, // warna background
-                                                  ),
-                                                );
-                                              }
-                                            } else {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Can not do presence out now",
-                                                  ),
-                                                  duration: Duration(
-                                                    seconds: 2,
-                                                  ), // lama tampil
-                                                  backgroundColor: Colors
-                                                      .blue, // warna background
-                                                ),
-                                              );
-                                            }
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  "Kamu sudah tidak bisa absen pulang",
-                                                ),
-                                                duration: Duration(
-                                                  seconds: 2,
-                                                ), // lama tampil
-                                                backgroundColor: Colors
-                                                    .blue, // warna background
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      )
-                                    : SizedBox(),
-                              ),
-                              TextButton(
-                                child: Text("Edit"),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/exception_edit',
-                                    arguments: {
-                                      'id': item['id'],
-                                      'date': item['date'],
-                                      'reason': item['reason'],
-                                      'status': item['status'],
-                                      'type': item['type'],
-                                      'image': item['image'],
-                                    },
+                              );
+                              final time = await getTime();
+                              if (item['status'] == "1") {
+                                if (!status.signedIn) {
+                                  if (DateTime.now().isBefore(makeLimit(schedule.start.split(':'), config.tolerance + config.ciLimit))) {
+                                    if (DateTime.now().isAfter(makeLimit(schedule.start.split(':'), 0).subtract(Duration(minutes: 60)))) {
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/signin',
+                                        arguments: {'ffocia': true},
+                                      );
+                                    } 
+                                    else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("Tunggu beberapa saat lagi"),
+                                          duration: Duration(seconds: 2),
+                                          backgroundColor: Colors.blue,
+                                        ),
+                                      );
+                                    } 
+                                  } 
+                                  else {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/signin',
+                                      arguments: {'ffocia': true},
+                                    );
+                                  }
+                                } 
+                                else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Kamu sudah absen"),
+                                      duration: Duration(seconds: 2),
+                                      backgroundColor: Colors.blue,
+                                    ),
                                   );
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  }
-                }
-
-                return SizedBox();
-              },
-            )
-          : SizedBox(),
+                                }
+                              } 
+                              else {
+                                Navigator.of(context).pop();
+                                showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => Container(
+                                    margin: EdgeInsets.all(16),
+                                    padding: EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.error, color: Colors.white),
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            "Request invalid",
+                                            style: TextStyle(color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          )
+                          : 
+                          SizedBox(),
+                        ),
+                        SizedBox(
+                          child: item['type'] == "Cuti pulang" ? TextButton(
+                            child: Text("Presensi setengah hari"),
+                            onPressed: () {
+                              if (item['status'] == "1") {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/signout',
+                                  arguments: {'csh': true},
+                                );
+                              } 
+                              else {
+                                SnackBar(
+                                  content: Text(
+                                    "Can not do presence out now",
+                                  ),
+                                  duration: Duration(
+                                    seconds: 2,
+                                  ), // lama tampil
+                                  backgroundColor: Colors.blue, // warna background
+                                );
+                              }
+                            },
+                          )
+                          : 
+                          SizedBox(),
+                        ),
+                        SizedBox(
+                          child: item['type'] == "Absen pulang" ? TextButton(
+                            child: Text("Presensi pulang"),
+                            onPressed: () async {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => Container(
+                                  margin: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          "Time validation",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                              final time = await getTime();                              
+                              if (time!.isBefore(makeLimit(schedule.finish.split(':'), config.coLimit))) {
+                                if (!time.isBefore(makeLimit(schedule.finish.split(':'), 0))) {
+                                  if (item["status"] == "1") {
+                                    Navigator.of(context).pop();
+                                    ref.read(globalStateProvider.notifier).fFOCOMakeAllowed();
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/signout',
+                                      arguments: {'csh': false},
+                                    );
+                                  } 
+                                  else {
+                                    Navigator.of(context).pop();
+                                    showModalBottomSheet(
+                                      context: context,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => Container(
+                                        margin: EdgeInsets.all(16),
+                                        padding: EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.error, color: Colors.white),
+                                            SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                "Request invalid",
+                                                style: TextStyle(color: Colors.white),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } 
+                                else {
+                                  Navigator.of(context).pop();
+                                  showModalBottomSheet(
+                                    context: context,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (_) => Container(
+                                      margin: EdgeInsets.all(16),
+                                      padding: EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.error, color: Colors.white),
+                                          SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              "Request invalid",
+                                              style: TextStyle(color: Colors.white),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } 
+                              else {
+                                Navigator.of(context).pop();
+                                showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => Container(
+                                    margin: EdgeInsets.all(16),
+                                    padding: EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.error, color: Colors.white),
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            "Request invalid",
+                                            style: TextStyle(color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          )
+                          : 
+                          SizedBox(),
+                        ),
+                        TextButton(
+                          child: Text("Edit"),
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/exception_edit',
+                              arguments: {
+                                'id': item['id'],
+                                'date': item['date'],
+                                'reason': item['reason'],
+                                'status': item['status'],
+                                'type': item['type'],
+                                'image': item['image'],
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }
+          }
+          return SizedBox();
+        },
+      )
+      : 
+      SizedBox(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.pushNamed(context, '/makeexception');

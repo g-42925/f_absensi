@@ -97,7 +97,7 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
     final fileName = '${DateTime.now().millisecondsSinceEpoch}';
     final url = Uri.parse("${Env.api}/api/mobile/leave");
     final headers = {"Content-type": "application/json"};
-    final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
+    final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
 
     final bytes = await file.readAsBytes();
 
@@ -147,7 +147,7 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
         body: jsonEncode(params)
       )
       .timeout(
-        const Duration(seconds: 3)
+        const Duration(seconds: 30)
       );
 
       Navigator.pushReplacementNamed(

@@ -128,7 +128,7 @@ class _BreakPageState extends ConsumerState<BreakPage> {
         body: jsonEncode(params)
       )
       .timeout(
-        const Duration(seconds: 3)
+        const Duration(seconds: 30)
       );
 
       ref.read(globalStateProvider.notifier).breakStart();

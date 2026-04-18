@@ -37,7 +37,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     Uri url = Uri.parse("${Env.api}/api/mobile/calendar/$empId/$date");
     
     try {
-      return await http.get(url).timeout(const Duration(seconds: 3));
+      return await http.get(url).timeout(const Duration(seconds: 30));
     } 
     on TimeoutException catch(err) {
       throw Error();

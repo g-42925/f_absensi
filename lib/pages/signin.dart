@@ -171,7 +171,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/signin");
-      final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
+      final uploadUrl = Uri.parse("${Env.api}/filebase/attendance/$fileName/${company.id}");
 
       final formattedTime = DateFormat("HH:mm").format(currentTime);
       final headers = {"Content-type": "application/json"};
@@ -264,7 +264,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             body: jsonEncode(params),
           )
           .timeout(
-            const Duration(seconds: 3)
+            const Duration(seconds: 30)
           );
 
           print(xRequest.body);

@@ -51,7 +51,7 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
           body: jsonEncode(exceptionData),
         )
         .timeout(
-          const Duration(seconds: 3)
+          const Duration(seconds: 30)
         );
 
         if (jsonDecode(exc.body)['success']) {
@@ -61,7 +61,7 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text("coba beberapa saat lagi"),
-              duration: Duration(seconds: 10),
+              duration: Duration(seconds: 30),
             ),
           );
 

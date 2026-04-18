@@ -24,7 +24,7 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
     );
 
     try {
-      return await http.get(url).timeout(const Duration(seconds: 3));
+      return await http.get(url).timeout(const Duration(seconds: 30));
     } 
     on TimeoutException catch(err) {
       throw Error();
@@ -84,7 +84,6 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                       ),
                     );
                   }); 
-
                   return SizedBox();
                 } 
                 else {

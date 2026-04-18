@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:absensi/providers/global_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -53,7 +54,17 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
       'request_izin_id': id,
     };
 
-    return http.post(url, headers: headers, body: jsonEncode(params));
+    try {
+      return await http.post(url, headers: headers, body: jsonEncode(params)).timeout(const Duration(seconds: 3));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
+
+  
   }
 
   Future<Response> setComeBack(String id) async {
@@ -67,7 +78,15 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
       'request_izin_id': id,
     };
 
-    return http.post(url, headers: headers, body: jsonEncode(params));
+    try {
+      return await http.post(url, headers: headers, body: jsonEncode(params)).timeout(const Duration(seconds: 30));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
   }
 
   @override
@@ -275,23 +294,17 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                     } 
                     else {
                       final future = setLeave(widget.requestIzinId);
-                      
+
                       setState(() {
                         response = future;
                       });
 
                       try {
                         await future;
-                        
-                        ref.read(
-                          globalStateProvider.notifier
-                        )
-                        .addHistory(
-                          "l-${widget.requestIzinId}"
-                        );
+                        ref.read(globalStateProvider.notifier).addHistory("l-${widget.requestIzinId}");
                       } 
                       catch (err) {
-                        // do something
+                        // error handling
                       }
                     }
                   } 
@@ -330,22 +343,24 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                   if (btnIds.contains("l-${widget.requestIzinId}")) {
                     if (!btnIds.contains("a-${widget.requestIzinId}")) {
                       final future = setComeBack(widget.requestIzinId);
+                     
                       setState(() {
                         response = future;
                       });
 
                       try {
                         await future;
-                        ref
-                            .read(globalStateProvider.notifier)
-                            .addHistory("a-${widget.requestIzinId}");
-                      } catch (err) {
-                        // do something
+                        ref.read(globalStateProvider.notifier).addHistory("a-${widget.requestIzinId}");
+                      } 
+                      catch (err) {
+                        // error handling
                       }
-                    } else {
+                    }
+                    else {
                       // do something
                     }
-                  } else {
+                  } 
+                  else {
                     // do something
                   }
                 },
@@ -374,19 +389,50 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
             ),
             SizedBox(height: 24),
             Container(
-              child: response != null
-                  ? FutureBuilder(
-                      future: response,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Center(child: CircularProgressIndicator());
-                        } else {
-                          return Container();
-                        }
-                      },
-                    )
-                  : Container(),
+              child: response != null ? FutureBuilder(
+                future: response,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  } 
+                  else {
+                    if (snapshot.hasError) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => Container(
+                          margin: EdgeInsets.all(16),
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error, color: Colors.white),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    "Request timeout or something went wrong",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            )
+                          ),
+                        );
+                      }); 
+                      return SizedBox();  
+                    } 
+                    else {
+                      return Container();
+                    }
+                  }
+                },
+              )
+              : 
+              Container(),
             ),
           ],
         ),

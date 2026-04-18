@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'dart:async';
 import 'package:absensi/env/env.dart';
 import 'package:absensi/providers/global_state.dart';
 import 'package:flutter/material.dart';
@@ -99,15 +99,10 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
     final sDate = DateFormat('yyyy-MM-dd').format(date);
     Uri url = Uri.parse("${Env.api}/api/mobile/salary/${empId}/$sDate");
 
-    print(url);
-
     return http.get(url);
   }
 
-  Future<void> checkCurrentSalary(
-    DateTime tglMulai,
-    DateTime tglSelesai,
-  ) async {
+  Future<void> checkCurrentSalary(DateTime tglMulai, DateTime tglSelesai) async {
     final globalState = ref.read(globalStateProvider);
     final empId = globalState.other.pegawaiId;
     final tglX = DateFormat('yyyy-MM-dd').format(tglMulai);
@@ -116,8 +111,10 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
     Uri url = Uri.parse("${Env.api}/api/mobile/salary/${empId}/$tglX/$tglY");
 
     try {
-      final test = await http.get(url);
-
+      final test = await http.get(url).timeout(
+        const Duration(seconds: 30)
+      );
+      
       Navigator.pushNamed(
         context,
         '/salary_slip',
@@ -127,11 +124,57 @@ class _SalaryPageState extends ConsumerState<SalaryPage> {
           'tglY': '${tglY}',
         },
       );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Coba beberapa saat lagi'),
-          duration: Duration(seconds: 2),
+    } 
+    on TimeoutException catch(err) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+        margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Request timeout",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          )
+        ),
+      );
+    }
+    catch (e) {
+      print(e);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+        margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Request timeout or something went wrong",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          )
         ),
       );
     }

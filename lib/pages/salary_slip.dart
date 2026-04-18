@@ -98,8 +98,6 @@ class _SalarySlipPageState extends ConsumerState<SalarySlipPage> {
     final sDate = DateFormat('yyyy-MM-dd').format(date);
     Uri url = Uri.parse("${Env.api}/api/mobile/salary/${empId}/$sDate");
 
-    print(url);
-
     return http.get(url);
   }
 

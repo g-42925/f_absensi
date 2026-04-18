@@ -60,13 +60,14 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
     final headers = {"Content-type": "application/json"};
 
     final exceptionList = ref.read(globalStateProvider).exception;
+    final company = ref.read(globalStateProvider).company;
 
     if (_formKey.currentState!.validate() && _selectedDate != null) {
       final file = File(_image!.path);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final fDate = _selectedDate!.toIso8601String().split("T")[0];
       final identifier = "$selectedValue-$fDate";
-      final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
+      final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
 
       if (!exceptionList.list.contains(identifier)){
         try {
@@ -118,7 +119,7 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
             body: jsonEncode(exceptionData),
           )
           .timeout(
-            const Duration(seconds: 3)
+            const Duration(seconds: 30)
           );
 
           if (jsonDecode(exc.body)['success']) {

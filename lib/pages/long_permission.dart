@@ -57,13 +57,12 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
 
   void sendRequest(String companyId, String pegawaiId) async {
     final headers = {"Content-type": "application/json"};
+    final company = ref.read(globalStateProvider).company;
 
     final file = File(_image!.path);
 		final bytes = await file.readAsBytes();
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
-    final uploadUrl = Uri.parse("${Env.api}/filebase/upload/$fileName");
-
-		print(uploadUrl);
+    final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
 
     final compressed = await FlutterImageCompress.compressWithList(
       bytes,
@@ -92,7 +91,6 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
 
     final uploadResponse = responseBody;
 
-		print(uploadResponse);
 
     final params = {
       'company_id': companyId,
@@ -111,7 +109,7 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
         body: jsonEncode(params)
       )
       .timeout(
-        const Duration(seconds: 3)
+        const Duration(seconds: 30)
       );
       Navigator.pushReplacementNamed(
         context, '/'

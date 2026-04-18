@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:absensi/env/env.dart';
@@ -88,7 +89,15 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       "${Env.api}/api/mobile/schedule/${other.pegawaiId}/$date",
     );
 
-    return http.get(url);
+    try {
+      return await http.get(url).timeout(const Duration(seconds: 30));
+    } 
+    on TimeoutException catch(err) {
+      throw Error();
+    }
+    catch (err) {
+      throw Error();
+    }
   }
 
   Future<void> fetch() async {
@@ -121,6 +130,12 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: fetch,
+          ),
+        ],
       ),
       body: list != null
           ? FutureBuilder(
@@ -128,14 +143,38 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
-                } else {
+                } 
+                else {
                   if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        "something went wrong or no notification exist",
-                      ),
-                    );
-                  } else {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => Container(
+                        margin: EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error, color: Colors.white),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  "Request timeout or something went wrong",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          )
+                        ),
+                      );
+                    });
+                    return SizedBox();
+                  }   
+                  else {
                     final response = snapshot.data!;
                     final data = jsonDecode(response.body);
                     final schedule = data['schedule'];

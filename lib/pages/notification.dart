@@ -25,7 +25,7 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
     );
 
     try {
-      return await http.get(url).timeout(const Duration(seconds: 3));
+      return await http.get(url).timeout(const Duration(seconds: 30));
     } 
     on TimeoutException catch(err) {
       throw Error();

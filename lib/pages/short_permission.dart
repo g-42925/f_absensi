@@ -42,7 +42,7 @@ class _ShortPemissionPageState extends ConsumerState<ShortPermissionPage> {
     };
 
     try {
-      await http.post(url, headers: headers, body: jsonEncode(params)).timeout(const Duration(seconds: 3));
+      await http.post(url, headers: headers, body: jsonEncode(params)).timeout(const Duration(seconds: 30));
       Navigator.pushReplacementNamed(context, '/');
     } 
     on TimeoutException catch(err) {
