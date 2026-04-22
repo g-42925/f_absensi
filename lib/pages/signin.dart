@@ -55,12 +55,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   String selectedValue = "";
 
-  Map<String, String> loc = {
-    'subDistrict': '',
-    'province': '',
-    'country': '',
-    'address': '',
-  };
+  Map<String, String> loc = {'address': ''};
 
   String path = "";
 
@@ -156,9 +151,15 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final supabase = Supabase.instance.client;
     final currentTime = DateTime.now();
 
-    final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
+    final uri = Uri.parse(Env.locationIqUrl).replace(
+      queryParameters: {
+        'lat': "$latitude",
+        'lon': "$longitude", 
+        'key': Env.locationIqKey,
+        'format': 'json',
+      },
     );
+
 
     try {
       final state = ref.read(globalStateProvider);
@@ -167,8 +168,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       final img = await _controller!.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
-      final target = response['results'][0];
-      final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/signin");
       final uploadUrl = Uri.parse("${Env.api}/filebase/attendance/$fileName/${company.id}");
@@ -182,10 +181,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
       final inputImage = InputImage.fromFilePath(img.path);
 
-      loc['address'] = target['formatted_address'];
-      loc['subDistrict'] = addressComponents[3]['short_name'];
-      loc['province'] = addressComponents[5]['short_name'];
-      loc['country'] = addressComponents[6]['long_name'];
+      loc['address'] = response['display_name'];
 
       setState(() {
         path = img.path;
@@ -518,13 +514,16 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               child: Row(
                 children: [
                   Image.network(
-                    Uri.parse(Env.gStaticMap)
+                    Uri.parse(Env.locationIqStaticMap)
                         .replace(
                           queryParameters: {
                             'center': "$latitude,$longitude",
                             'size': '100x200',
                             'zoom': '18',
-                            'key': Env.gMapKey,
+                            'key': Env.locationIqKey,
+                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
+                            'format': 'jpg',
+                            'maptype':'streets'
                           },
                         )
                         .toString(),
@@ -543,15 +542,11 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['subDistrict']}, ${loc['province']}",
+                              "${loc['address']}",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                               ),
-                            ),
-                            Text(
-                              "${loc['address']}",
-                              style: TextStyle(color: Colors.white),
                             ),
                             Text(
                               "$latitude",

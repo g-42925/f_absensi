@@ -48,12 +48,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   bool clicked = false;
 
-  Map<String, String> loc = {
-    'subDistrict': '',
-    'province': '',
-    'country': '',
-    'address': '',
-  };
+  Map<String, String> loc = {'address': ''};
 
   String path = "";
 
@@ -138,9 +133,15 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
   void captureAndUpload(String? pegawaiId,bool csh) async {
     final currentTime = DateTime.now();
 
-    final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
+    final uri = Uri.parse(Env.locationIqUrl).replace(
+      queryParameters: {
+        'lat': "$latitude",
+        'lon': "$longitude", 
+        'key': Env.locationIqKey,
+        'format': 'json',
+      },
     );
+
 
     try {
       final state = ref.read(globalStateProvider);
@@ -152,8 +153,6 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       final img = await _controller!.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
-      final target = response['results'][0];
-      final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/signout");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
@@ -163,10 +162,10 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       final formattedSecond = DateFormat('HH:mm:ss').format(now);
       final uploadUrl = Uri.parse("${Env.api}/filebase/attendance/$fileName/${company.id}");
 
-      loc['address'] = target['formatted_address'];
-      loc['subDistrict'] = addressComponents[3]['short_name'];
-      loc['province'] = addressComponents[5]['short_name'];
-      loc['country'] = addressComponents[6]['long_name'];
+
+      loc['address'] = response['display_name'];
+
+      print(loc);
 
       setState(() {
         path = img.path;
@@ -216,6 +215,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
         ),
       );
 
+
       final streamedResponse = await request.send();
 
       if (streamedResponse.statusCode != 200) {}
@@ -246,14 +246,37 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
         final xResponse = jsonDecode(xRequest.body);
 
         if (!xResponse['success']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(xResponse['message']),
-              duration: Duration(seconds: 4),
-            ),
-          );
-
           Navigator.pop(context);
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (context) {
+              return Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "something went wrong",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+          setState(() {
+            preview = false;
+            clicked = false;
+          });
         } 
         else {
           final response = await supabase
@@ -373,6 +396,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       });
     }
     catch (err) {
+      print(err);
       Navigator.pop(context);
       showModalBottomSheet(
         context: context,
@@ -424,13 +448,16 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
               child: Row(
                 children: [
                   Image.network(
-                    Uri.parse(Env.gStaticMap)
+                    Uri.parse(Env.locationIqStaticMap)
                         .replace(
                           queryParameters: {
                             'center': "$latitude,$longitude",
                             'size': '100x200',
                             'zoom': '18',
-                            'key': Env.gMapKey,
+                            'key': Env.locationIqKey,
+                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
+                            'format': 'jpg',
+                            'maptype':'streets'
                           },
                         )
                         .toString(),
@@ -449,15 +476,11 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['subDistrict']}, ${loc['province']}",
+                              "${loc['address']}",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                               ),
-                            ),
-                            Text(
-                              "${loc['address']}",
-                              style: TextStyle(color: Colors.white),
                             ),
                             Text(
                               "$latitude",

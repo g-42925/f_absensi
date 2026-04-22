@@ -15,6 +15,12 @@ abstract class Env {
   static const String supabaseKey = _Env.supabaseKey;
   @EnviedField(varName: 'GMAPURL')
   static const String gMapUrl = _Env.gMapUrl;
+  @EnviedField(varName: 'LOCATIONIQURL')
+  static const String locationIqUrl = _Env.locationIqUrl;
   @EnviedField(varName: 'GSTATICMAP')
   static const String gStaticMap = _Env.gStaticMap;
+  @EnviedField(varName: 'LOCATIONIQKEY')
+  static const String locationIqKey = _Env.locationIqKey;
+  @EnviedField(varName: 'LOCATIONIQSTATICMAP')
+  static const String locationIqStaticMap = _Env.locationIqStaticMap;
 }
