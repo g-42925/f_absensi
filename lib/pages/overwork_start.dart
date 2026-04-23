@@ -52,9 +52,6 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
   late Future<List<dynamic>> _future;
 
   Map<String, String> loc = {
-    'subDistrict': '',
-    'province': '',
-    'country': '',
     'address': '',
   };
 
@@ -154,8 +151,8 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
   void captureAndUpload(String? pegawaiId,id,id2) async {
     final currentTime = DateTime.now();
 
-    final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
+    final uri = Uri.parse(Env.locationIqUrl).replace(
+      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.locationIqKey},
     );
     try {
       final state = ref.read(globalStateProvider);
@@ -164,8 +161,6 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
       final img = await _controller.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
-      final target = response['results'][0];
-      final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
       final url = Uri.parse("${Env.api}/api/mobile/overworkstart");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
@@ -176,10 +171,7 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
       final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
       final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
 
-      loc['address'] = target['formatted_address'];
-      loc['subDistrict'] = addressComponents[3]['short_name'];
-      loc['province'] = addressComponents[5]['short_name'];
-      loc['country'] = addressComponents[6]['long_name'];
+      loc['address'] = response['display_name'];
 
       setState(() {
         path = img.path;
@@ -244,6 +236,7 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
         "employee_id": pegawaiId,
         'employee_overwork_detail_id': id,
         'employee_overwork_id': id2,
+        'is_mock': isSuspicious,
       };
 
       final xRequest = await http.post(
@@ -403,13 +396,16 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
               child: Row(
                 children: [
                   Image.network(
-                    Uri.parse(Env.gStaticMap)
+                    Uri.parse(Env.locationIqStaticMap)
                         .replace(
                           queryParameters: {
                             'center': "$latitude,$longitude",
                             'size': '100x200',
                             'zoom': '18',
-                            'key': Env.gMapKey,
+                            'key': Env.locationIqKey,
+                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
+                            'format': 'jpg',
+                            'maptype':'streets'
                           },
                         )
                         .toString(),
@@ -428,15 +424,11 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['subDistrict']}, ${loc['province']}",
+                              "${loc['address']}",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                               ),
-                            ),
-                            Text(
-                              "${loc['address']}",
-                              style: TextStyle(color: Colors.white),
                             ),
                             Text(
                               "$latitude",
@@ -463,84 +455,6 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
       ),
     );
   }
-
-  // Widget setPreview(dynamic id) {
-  //   return RepaintBoundary(
-  //     key: _globalKey,
-  //     child: Stack(
-  //       children: [
-  //         SizedBox(
-  //           height: MediaQuery.of(context).size.height,
-  //           child: Image.file(File(path)),
-  //         ),
-  //         Positioned(
-  //           width: MediaQuery.of(context).size.width,
-  //           bottom: 60,
-  //           child: Padding(
-  //             padding: EdgeInsets.all(16),
-  //             child: Row(
-  //               children: [
-  //                 Image.network(
-  //                   Uri.parse(Env.gStaticMap)
-  //                       .replace(
-  //                         queryParameters: {
-  //                           'center': "$latitude,$longitude",
-  //                           'size': '100x200',
-  //                           'zoom': '18',
-  //                           'key': Env.gMapKey,
-  //                         },
-  //                       )
-  //                       .toString(),
-  //                   fit: BoxFit.cover,
-  //                 ),
-  //                 SizedBox(width: 10),
-  //                 Expanded(
-  //                   child: Container(
-  //                     decoration: BoxDecoration(
-  //                       borderRadius: BorderRadius.circular(15),
-  //                       color: Colors.black,
-  //                     ),
-  //                     child: Padding(
-  //                       padding: EdgeInsets.all(12),
-  //                       child: Column(
-  //                         crossAxisAlignment: CrossAxisAlignment.start,
-  //                         children: [
-  //                           Text(
-  //                             "${loc['subDistrict']}, ${loc['province']}",
-  //                             style: TextStyle(
-  //                               color: Colors.white,
-  //                               fontSize: 15,
-  //                             ),
-  //                           ),
-  //                           Text(
-  //                             "${loc['address']}",
-  //                             style: TextStyle(color: Colors.white),
-  //                           ),
-  //                           Text(
-  //                             "$latitude",
-  //                             style: TextStyle(color: Colors.white),
-  //                           ),
-  //                           Text(
-  //                             "$longitude",
-  //                             style: TextStyle(color: Colors.white),
-  //                           ),
-  //                           Text(
-  //                             getYear(DateTime.now()),
-  //                             style: TextStyle(color: Colors.white),
-  //                           ),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget setCamera(Map<String, dynamic> args){
     final globalState = ref.read(globalStateProvider);
@@ -632,132 +546,6 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
     );   
   }
 
-  // Widget setCamera(
-  //   List<Map<String, dynamic>>? list,
-  //   Other other,
-  //   dynamic id,
-  //   dynamic id2,
-  // ) {
-  //   final entries = (list ?? []).map((l) {
-  //     return DropdownMenuEntry(
-  //       value: '${l['lat']}/${l['lon']}',
-  //       label: '${l['locationName']}',
-  //     );
-  //   }).toList();
-
-  //   entries.add(DropdownMenuEntry(value: '0/0', label: 'pilih lokasi'));
-
-  //   final globalState = ref.read(globalStateProvider);
-  //   final schedule = globalState.schedule;
-  //   final workSystemName = schedule.workSystemName;
-
-  //   return position != null
-  //       ? FutureBuilder(
-  //           future: position,
-  //           builder: (context, snapshot) {
-  //             if (snapshot.connectionState == ConnectionState.waiting) {
-  //               return Center(child: CircularProgressIndicator());
-  //             }
-  //             if (snapshot.hasError) {
-  //               WidgetsBinding.instance.addPostFrameCallback((_) {
-  //                 requestPositionPermission();
-  //               });
-  //               return Center(child: CircularProgressIndicator());
-  //             } else {
-  //               final response = snapshot.data;
-  //               final latitude = response?.latitude;
-  //               final longitude = response?.longitude;
-
-  //               return Stack(
-  //                 children: [
-  //                   Center(
-  //                     child: ClipOval(
-  //                       child: SizedBox(
-  //                         width: 300,
-  //                         height: 300,
-  //                         child: CameraPreview(_controller),
-  //                       ),
-  //                     ),
-  //                   ),
-  //                   Positioned(
-  //                     bottom: 110,
-  //                     left: 0,
-  //                     right: 0,
-  //                     child: Container(
-  //                       padding: EdgeInsets.all(12),
-  //                       margin: EdgeInsets.symmetric(horizontal: 20),
-  //                       decoration: BoxDecoration(
-  //                         borderRadius: BorderRadius.circular(8),
-  //                         border: Border.all(color: Colors.grey.shade300),
-  //                       ),
-  //                       child: Column(
-  //                         children: [
-  //                           Row(
-  //                             children: [
-  //                               Icon(Icons.calendar_today, size: 18),
-  //                               SizedBox(width: 8),
-  //                               Text(
-  //                                 "$workSystemName - ${DateFormat('EEEE, dd MMM yyyy').format(DateTime.now())}",
-  //                               ),
-  //                             ],
-  //                           ),
-  //                           SizedBox(height: 8),
-  //                           Row(
-  //                             children: [
-  //                               Icon(
-  //                                 Icons.location_on,
-  //                                 size: 18,
-  //                                 color: Colors.red,
-  //                               ),
-  //                               SizedBox(width: 8),
-  //                               Text(setLocation(latitude!, longitude!)),
-  //                             ],
-  //                           ),
-  //                         ],
-  //                       ),
-  //                     ),
-  //                   ),
-  //                   Positioned(
-  //                     bottom: 20,
-  //                     left: 0,
-  //                     right: 0,
-  //                     child: Container(
-  //                       margin: EdgeInsets.all(16), // margin di semua sisi
-  //                       width: double.infinity, // membuat selebar layar
-  //                       child: ElevatedButton(
-  //                         style: ElevatedButton.styleFrom(
-  //                           backgroundColor: Colors.green[600], // hijau gelap
-  //                           padding: EdgeInsets.symmetric(
-  //                             vertical: 16,
-  //                           ), // tinggi button
-  //                         ),
-  //                         onPressed: () {
-  //                           captureAndUpload(
-  //                             latitude,
-  //                             longitude,
-  //                             other.pegawaiId,
-  //                             id,
-  //                             id2,
-  //                           );
-  //                         },
-  //                         child: Text(
-  //                           "Mulai",
-  //                           style: TextStyle(
-  //                             color: Colors.white, // warna teks putih
-  //                             fontSize: 16,
-  //                           ),
-  //                         ),
-  //                       ),
-  //                     ),
-  //                   ),
-  //                 ],
-  //               );
-  //             }
-  //           },
-  //         )
-  //       : SizedBox();
-  // }
-
     @override Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final locs = ref.watch(locationProvider);
@@ -773,8 +561,8 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
 				WidgetsBinding.instance.addPostFrameCallback((_) {
           if(mounted){
 					  setState(() {
-              latitude = position.latitude;
-              longitude = position.longitude;
+              latitude = position['position'].latitude;
+              longitude = position['position'].longitude;
             });
 					}
         });
@@ -789,8 +577,8 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
 				    WidgetsBinding.instance.addPostFrameCallback((_) {
               if(mounted){
 					      setState(() {
-                  latitude = position.latitude;
-                  longitude = position.longitude;
+                  latitude = position['position'].latitude;
+                  longitude = position['position'].longitude;
                 });
 				     	}
             });
@@ -823,36 +611,4 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
 	    }
 		);
   }
-
-  // @override
-  // Widget build(BuildContext context) {
-  //   final globalState = ref.read(globalStateProvider);
-  //   final other = globalState.other;
-  //   final location = globalState.location;
-  //   final args =
-  //       ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-
-  //   return Scaffold(
-  //     appBar: !preview
-  //         ? AppBar(
-  //             leading: IconButton(
-  //               icon: const Icon(Icons.arrow_back),
-  //               onPressed: () => Navigator.pop(context),
-  //             ),
-  //           )
-  //         : null,
-  //     body: FutureBuilder(
-  //       future: _initializeControllerFuture,
-  //       builder: (context, snapshot) {
-  //         if (snapshot.connectionState == ConnectionState.done) {
-  //           return preview
-  //               ? setPreview(args['id'])
-  //               : setCamera(location.list, other, args['id'], args['id2']);
-  //         } else {
-  //           return Center(child: CircularProgressIndicator());
-  //         }
-  //       },
-  //     ),
-  //   );
-  // }
 }

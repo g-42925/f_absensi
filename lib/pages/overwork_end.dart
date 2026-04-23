@@ -53,13 +53,12 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
   late Future<List<dynamic>> _future;
 
   Map<String, String> loc = {
-    'subDistrict': '',
-    'province': '',
-    'country': '',
     'address': '',
   };
 
   String path = "";
+
+  bool isSuspicious = false;
 
   Future<void> requestPositionPermission() async {
     setState(() {
@@ -155,8 +154,13 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
   void captureAndUpload(String? pegawaiId,id,id2) async {
     final currentTime = DateTime.now();
 
-    final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
+    final uri = Uri.parse(Env.locationIqUrl).replace(
+      queryParameters: {
+        'lat': "$latitude",
+        'lon': "$longitude", 
+        'key': Env.locationIqKey,
+        'format': 'json',
+      },
     );
     try {
       final state = ref.read(globalStateProvider);
@@ -165,8 +169,6 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
       final img = await _controller.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
-      final target = response['results'][0];
-      final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
       final url = Uri.parse("${Env.api}/api/mobile/overworkend");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
@@ -177,10 +179,7 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
       final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
       final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
 
-      loc['address'] = target['formatted_address'];
-      loc['subDistrict'] = addressComponents[3]['short_name'];
-      loc['province'] = addressComponents[5]['short_name'];
-      loc['country'] = addressComponents[6]['long_name'];
+      loc['address'] = response['display_name'];
 
       setState(() {
         path = img.path;
@@ -245,6 +244,7 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
         "employee_id": pegawaiId,
         'employee_overwork_detail_id': id,
         'employee_overwork_id': id2,
+        'is_mock': isSuspicious,
       };
 
       final xRequest = await http.post(
@@ -404,13 +404,16 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
               child: Row(
                 children: [
                   Image.network(
-                    Uri.parse(Env.gStaticMap)
+                    Uri.parse(Env.locationIqStaticMap)
                         .replace(
                           queryParameters: {
                             'center': "$latitude,$longitude",
                             'size': '100x200',
                             'zoom': '18',
-                            'key': Env.gMapKey,
+                            'key': Env.locationIqKey,
+                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
+                            'format': 'jpg',
+                            'maptype':'streets'
                           },
                         )
                         .toString(),
@@ -429,15 +432,11 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['subDistrict']}, ${loc['province']}",
+                              "${loc['address']}",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                               ),
-                            ),
-                            Text(
-                              "${loc['address']}",
-                              style: TextStyle(color: Colors.white),
                             ),
                             Text(
                               "$latitude",
@@ -570,8 +569,8 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
 				WidgetsBinding.instance.addPostFrameCallback((_) {
           if(mounted){
 					  setState(() {
-              latitude = position.latitude;
-              longitude = position.longitude;
+              latitude = position['position'].latitude;
+              longitude = position['position'].longitude;
             });
 					}
         });
@@ -586,8 +585,9 @@ class _OverWorkEndPageState extends ConsumerState<OverWorkEndPage> {
 				    WidgetsBinding.instance.addPostFrameCallback((_) {
               if(mounted){
 					      setState(() {
-                  latitude = position.latitude;
-                  longitude = position.longitude;
+                  latitude = position['position'].latitude;
+                  longitude = position['position'].longitude;
+                  isSuspicious = position['isSuspicious'];
                 });
 				     	}
             });

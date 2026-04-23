@@ -53,6 +53,8 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 
   String path = "";
 
+  bool isSuspicious = false;
+
   Future<dynamic> requestLocation() async{
     LocationPermission permission = await Geolocator.requestPermission();
     
@@ -233,6 +235,7 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
         "start_location": "$latitude/$longitude",
         "employee_id": pegawaiId,
         'task_id': id,
+        'is_mock': isSuspicious
       };
 
       final xRequest = await http.post(
@@ -516,10 +519,12 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
       ),
 			data: (position){
 				WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted && (latitude != position.latitude || longitude != position.longitude)){
-					  setState(() {
-              latitude = position.latitude;
-              longitude = position.longitude;
+          if(mounted && (latitude != position['position'].latitude || longitude != position['position'].longitude)){
+					  print("isSuspicious");
+            setState(() {
+              latitude = position['position'].latitude;
+              longitude = position['position'].longitude;
+              isSuspicious = position['isSuspicious'];
             });
 					}
         });

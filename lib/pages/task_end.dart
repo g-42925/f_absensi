@@ -53,6 +53,8 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
 
   bool clicked = false;
 
+  bool isSuspicious = false;
+
   @override
   void dispose() {
     _controller?.dispose();
@@ -229,6 +231,7 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
         "finish_photo": uploadResponse,
         "finish_location": "$latitude/$longitude",
         'task_id': id,
+        'is_mock': isSuspicious,
       };
 
       final xRequest = await http.post(
@@ -514,10 +517,11 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
       ),
 			data: (position){
 				WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted && (latitude != position.latitude || longitude != position.longitude)){
+          if(mounted && (latitude != position['position'].latitude || longitude != position['position'].longitude)){
 					  setState(() {
-              latitude = position.latitude;
-              longitude = position.longitude;
+              latitude = position['position'].latitude;
+              longitude = position['position'].longitude;
+              isSuspicious = position['isSuspicious'];
             });
 					}
         });

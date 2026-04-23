@@ -49,6 +49,8 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   bool clicked = false;
 
+  bool isSuspicious = false;
+
   final controller = TextEditingController();
 
   String locationName = 'Anda berada di luar area presensi';
@@ -251,6 +253,8 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         "longitude_masuk": longitude,
         "pegawai_id": pegawaiId,
       };
+
+      print(params);
 
       if ((ffocia || config.ffocia) || isOnOffice(latitude, longitude)) {
         if(faces.length > 0){
@@ -676,10 +680,11 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       ),
 			data: (position){
 				WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted && (latitude != position.latitude || longitude != position.longitude)){
-					  setState(() {
-              latitude = position.latitude;
-              longitude = position.longitude;
+          if(mounted && (latitude != position['position'].latitude || longitude != position['position'].longitude)){
+            setState(() {
+              latitude = position['position'].latitude;
+              longitude = position['position'].longitude;
+              isSuspicious = position['isSuspicious'];
             });
 					}
         });

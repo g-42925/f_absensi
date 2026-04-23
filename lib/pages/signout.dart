@@ -52,6 +52,8 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   String path = "";
 
+  bool isSuspicious = false;
+
   Future<dynamic> requestLocation() async{
     LocationPermission permission = await Geolocator.requestPermission();
     
@@ -165,8 +167,6 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
       loc['address'] = response['display_name'];
 
-      print(loc);
-
       setState(() {
         path = img.path;
         preview = true;
@@ -231,6 +231,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
         "longitude_keluar": longitude,
         "pegawai_id": pegawaiId,
         "csh": csh,
+        "is_mock": isSuspicious,
       };
 
       if(state.config.ffocoa || isOnOffice(latitude, longitude)) {
@@ -628,10 +629,11 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       ),
       data: (position){
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted && (latitude != position.latitude || longitude != position.longitude)){
+          if(mounted && (latitude != position['position'].latitude || longitude != position['position'].longitude)){
 					  setState(() {
-              latitude = position.latitude;
-              longitude = position.longitude;
+              latitude = position['position'].latitude;
+              longitude = position['position'].longitude;
+              isSuspicious = position['isSuspicious'];
             });
 					}
         });
@@ -664,66 +666,5 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
         );
       }
     );
-    
-    // return locs.when(
-		// 	loading: () => const Scaffold(
-    //     body: Center(child: Text('please wait')),
-    //   ),
-		// 	error: (err, _) => Scaffold(
-    //     body: Center(child: Text('Gagal mengambil lokasi\n$err')),
-    //   ),
-		// 	data: (position){
-		// 		WidgetsBinding.instance.addPostFrameCallback((_) {
-    //       if(mounted){
-		// 			  setState(() {
-    //           latitude = position.latitude;
-    //           longitude = position.longitude;
-    //         });
-		// 			}
-    //     });
-    //     return locs.when(
-		// 	    loading: () => const Scaffold(
-    //         body: Center(child: Text('please wait')),
-    //       ),
-		// 	    error: (err, _) => Scaffold(
-    //         body: Center(child: Text('Gagal mengambil lokasi\n$err')),
-    //       ),
-		//  	    data: (position){
-		// 		    WidgetsBinding.instance.addPostFrameCallback((_) {
-    //           if(mounted){
-		// 			      setState(() {
-    //               latitude = position.latitude;
-    //               longitude = position.longitude;
-    //             });
-		// 		     	}
-    //         });
-
-    //         return Scaffold(
-    //           appBar: !preview
-    //           ? 
-    //           AppBar(
-    //               leading: IconButton(
-    //                 icon: const Icon(Icons.arrow_back),
-    //                 onPressed: () => Navigator.pop(context),
-    //               ),
-    //             )
-    //           : 
-    //           null,
-    //           body: FutureBuilder(
-    //             future: _future,
-    //             builder: (context, snapshot) {
-    //               if (snapshot.connectionState == ConnectionState.done) {
-    //                   return preview ? setPreview() : setCamera(args);
-    //               }  
-    //               else {
-    //                 return Center(child: CircularProgressIndicator());
-    //               }
-    //             },
-    //           ),
-    //         );
-	  //       }
-		//     );
-	  //   }
-		// );
   }
 }

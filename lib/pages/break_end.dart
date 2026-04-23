@@ -66,6 +66,8 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
 
   String path = "";
 
+  bool isSuspicious = false;
+
   Future<ByteBuffer> captureScreen() async {
     await Future.delayed(Duration(milliseconds: 1000));
     final boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
@@ -77,8 +79,13 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     void captureAndUpload(String? pegawaiId) async {
     final currentTime = DateTime.now();
 
-    final uri = Uri.parse(Env.gMapUrl).replace(
-      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.gMapKey},
+    final uri = Uri.parse(Env.locationIqUrl).replace(
+      queryParameters: {
+        'lat': "$latitude",
+        'lon': "$longitude", 
+        'key': Env.locationIqKey,
+        'format': 'json',
+      },
     );
 
     try {
@@ -92,8 +99,6 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
       final img = await _controller.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
-      final target = response['results'][0];
-      final addressComponents = target['address_components'];
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/afterbreak");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
@@ -105,10 +110,7 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
       final limit = globalState.schedule.breakFinish;
 
 
-      loc['address'] = target['formatted_address'];
-      loc['subDistrict'] = addressComponents[3]['short_name'];
-      loc['province'] = addressComponents[5]['short_name'];
-      loc['country'] = addressComponents[6]['long_name'];
+      loc['address'] = response['display_name'];
 
       setState(() {
         path = img.path;
@@ -173,6 +175,7 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         'photo': uploadResponse,
         'latitude': latitude,
         'longitude': longitude,
+        'is_mock': isSuspicious,
       };
 
       final xRequest = await http.post(
@@ -350,13 +353,16 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
               child: Row(
                 children: [
                   Image.network(
-                    Uri.parse(Env.gStaticMap)
+                    Uri.parse(Env.locationIqStaticMap)
                         .replace(
                           queryParameters: {
                             'center': "$latitude,$longitude",
                             'size': '100x200',
                             'zoom': '18',
-                            'key': Env.gMapKey,
+                            'key': Env.locationIqKey,
+                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
+                            'format': 'jpg',
+                            'maptype':'streets'
                           },
                         )
                         .toString(),
@@ -375,15 +381,11 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['subDistrict']}, ${loc['province']}",
+                              "${loc['address']}",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                               ),
-                            ),
-                            Text(
-                              "${loc['address']}",
-                              style: TextStyle(color: Colors.white),
                             ),
                             Text(
                               "$latitude",
@@ -558,8 +560,9 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
 				WidgetsBinding.instance.addPostFrameCallback((_) {
           if(mounted){
 					  setState(() {
-              latitude = position.latitude;
-              longitude = position.longitude;
+              latitude = position['position'].latitude;
+              longitude = position['position'].longitude;
+              isSuspicious = position['isSuspicious'];
             });
 					}
        });
@@ -587,18 +590,5 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         );
 	    }
 		);
-
-    // return Scaffold(
-    //   body: FutureBuilder(
-    //     future: _initializeControllerFuture,
-    //     builder: (context, snapshot) {
-    //       if (snapshot.connectionState == ConnectionState.done) {
-    //         return preview ? setPreview() : setCamera(location.list, other);
-    //       } else {
-    //         return Center(child: CircularProgressIndicator());
-    //       }
-    //     },
-    //   ),
-    // );
   }
 }
