@@ -57,6 +57,8 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
 
   String path = "";
 
+  bool isSuspicious = false;
+
   Future<void> requestPositionPermission() async {
     setState(() {
       position = null;
@@ -563,6 +565,7 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
 					  setState(() {
               latitude = position['position'].latitude;
               longitude = position['position'].longitude;
+              isSuspicious = position['isSuspicious'];
             });
 					}
         });
