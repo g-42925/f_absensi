@@ -24,7 +24,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
   DateTime? _selectedDateTime;
   DateTime? _selectedFinishDateTime;
 
-  final timeUri = Uri.parse("https://time.now/developer/api/ip")
+  final timeUri = Uri.parse("https://time.now/developer/api/ip");
 
   void _submitForm() async {
 
@@ -68,7 +68,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
       final pegawaiId = ref.read(globalStateProvider).other.pegawaiId;
       final headers = {"Content-type": "application/json"};
       final response = await http.get(timeUri).timeout(Duration(seconds: 30));
-      final _time = DateTime.parse(data['datetime']);
+      final _time = DateTime.parse(jsonDecode(time.body)['datetime']);
 
       final custom = DateTime(_time.year, _time.month, _time.day,int.parse(start[0]), int.parse(start[1]), int.parse(start[2])).add(
         const Duration(minutes: 59)
@@ -179,7 +179,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "harus diluar jam tugas hari ini!",
+                      "something went wrong",
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
@@ -206,7 +206,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    "Harap lengkapi data terlebih dahulu",
+                    "something went wrong",
                     style: TextStyle(color: Colors.white),
                   ),
                 ),

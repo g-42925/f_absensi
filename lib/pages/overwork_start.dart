@@ -154,8 +154,14 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
     final currentTime = DateTime.now();
 
     final uri = Uri.parse(Env.locationIqUrl).replace(
-      queryParameters: {'latlng': "$latitude,$longitude", 'key': Env.locationIqKey},
+      queryParameters: {
+        'lat': "$latitude",
+        'lon': "$longitude", 
+        'key': Env.locationIqKey,
+        'format': 'json',
+      },
     );
+
     try {
       final state = ref.read(globalStateProvider);
       final other = state.other;
@@ -347,6 +353,7 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
       });
     }
     catch (err) {
+      print(err);
       Navigator.pop(context);
       showModalBottomSheet(
         context: context,

@@ -252,6 +252,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         "latitude_masuk": latitude,
         "longitude_masuk": longitude,
         "pegawai_id": pegawaiId,
+        "is_mock":isSuspicious
       };
 
       print(params);
