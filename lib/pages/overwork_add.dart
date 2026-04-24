@@ -24,32 +24,99 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
   DateTime? _selectedDateTime;
   DateTime? _selectedFinishDateTime;
 
+  final timeUri = Uri.parse("https://time.now/developer/api/ip")
+
   void _submitForm() async {
-    final now = DateTime.now();
-    final start = ref.read(globalStateProvider).schedule.finish.split(":");
-    final custom = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      int.parse(start[0]),
-      int.parse(start[1]),
-      int.parse(start[2]),
-    ).add(const Duration(hours: 1));
-    print(custom);
 
-    final url = Uri.parse("${Env.api}/api/mobile/makeoverwork");
-    final pegawaiId = ref.read(globalStateProvider).other.pegawaiId;
-    final headers = {"Content-type": "application/json"};
 
-    if (_formKey.currentState!.validate() && _selectedDateTime != null) {
-      if (_selectedDateTime!.isAfter(custom)) {
-        final overWorkData = {
-          "start_from": DateFormat('yyyy-MM-dd HH:mm:ss').format(_selectedDateTime!),
-          "until": DateFormat('yyyy-MM-dd HH:mm:ss').format(_selectedFinishDateTime!),
-          "reason": _controller2.text,
-          "employee_id": pegawaiId,
-        };
-        try {
+    try{
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Time validation",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final start = ref.read(globalStateProvider).schedule.finish.split(":");
+      final time = await http.get(timeUri).timeout(Duration(seconds: 30));
+      final url = Uri.parse("${Env.api}/api/mobile/makeoverwork");
+      final pegawaiId = ref.read(globalStateProvider).other.pegawaiId;
+      final headers = {"Content-type": "application/json"};
+      final response = await http.get(timeUri).timeout(Duration(seconds: 30));
+      final _time = DateTime.parse(data['datetime']);
+
+      final custom = DateTime(_time.year, _time.month, _time.day,int.parse(start[0]), int.parse(start[1]), int.parse(start[2])).add(
+        const Duration(minutes: 59)
+      );
+
+      Navigator.of(context).pop();
+
+      if (_formKey.currentState!.validate() && _selectedDateTime != null) {
+        if (_selectedDateTime!.isAfter(custom)) {
+          final overWorkData = {
+            "start_from": DateFormat('yyyy-MM-dd HH:mm:ss').format(_selectedDateTime!),
+            "until": DateFormat('yyyy-MM-dd HH:mm:ss').format(_selectedFinishDateTime!),
+            "reason": _controller2.text,
+            "employee_id": pegawaiId,
+          };
+
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (_) => Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Submiting overwork request",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+
           final exc = await http.post(
             url,
             headers: headers,
@@ -59,6 +126,8 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             const Duration(seconds: 30)
           );
 
+          Navigator.of(context).pop();
+
           if (jsonDecode(exc.body)['success']) {
             Navigator.pushNamedAndRemoveUntil(
               context,
@@ -67,15 +136,33 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             );
           } 
           else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("coba beberapa saat lagi"),
-                duration: Duration(seconds: 2),
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (_) => Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "something went wrong",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
-        }
-        on TimeoutException catch(err) {
+        } 
+        else {
           showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
@@ -92,33 +179,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "Request timeout",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        catch (e) {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (_) => Container(
-              margin: EdgeInsets.all(16),
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.error, color: Colors.white),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      "something went wrong",
+                      "harus diluar jam tugas hari ini!",
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
@@ -145,7 +206,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    "harus diluar jam tugas hari ini!",
+                    "Harap lengkapi data terlebih dahulu",
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
@@ -154,7 +215,8 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
           ),
         );
       }
-    } else {
+    }
+    on TimeoutException catch(e){
       showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
@@ -171,7 +233,33 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "Harap lengkapi data terlebih dahulu",
+                  "Request timeout",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );    
+    }
+    catch(e){
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "something went wrong",
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -179,7 +267,7 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
           ),
         ),
       );
-    }
+    }  
   }
 
   Future<void> _selectDateTime(BuildContext context) async {
