@@ -71,10 +71,6 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
 
       if (!exceptionList.list.contains(identifier)){
         try {
-          setState(() {
-            clicked = true;
-          });
-          
           final bytes = await file.readAsBytes();
 
           final compressed = await FlutterImageCompress.compressWithList(

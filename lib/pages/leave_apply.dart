@@ -57,12 +57,12 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
     );
-    if (picked != null &&
-        picked != (isStartDate ? tanggalMulai : tanggalSelesai)) {
+    if (picked != null && picked != (isStartDate ? tanggalMulai : tanggalSelesai)) {
       setState(() {
         if (isStartDate) {
           tanggalMulai = picked;
-        } else {
+        } 
+        else {
           tanggalSelesai = picked;
         }
       });
@@ -80,7 +80,8 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
       setState(() {
         if (isMulai) {
           tanggalMulai = picked;
-        } else {
+        } 
+        else {
           tanggalSelesai = picked;
         }
       });
@@ -88,73 +89,47 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
   }
 
   void _submitForm(int quota) async {
-    final other = ref.read(globalStateProvider).other;
-    final company = ref.read(globalStateProvider).company;
-    final Duration d = tanggalSelesai!.difference(tanggalMulai!);
-    final xTanggalMulai = DateFormat("yyyy-MM-dd").format(tanggalMulai!);
-    final xTanggalSelesai = DateFormat("yyyy-MM-dd").format(tanggalSelesai!);
-    final file = File(_image!.path);
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}';
-    final url = Uri.parse("${Env.api}/api/mobile/leave");
-    final headers = {"Content-type": "application/json"};
-    final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
+    if(!_formKey.currentState!.validate() || (tanggalMulai == null || tanggalSelesai == null)){
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );         
+    }
+    else{
+      final other = ref.read(globalStateProvider).other;
+      final company = ref.read(globalStateProvider).company;
+      final Duration d = tanggalSelesai!.difference(tanggalMulai!);
+      final xTanggalMulai = DateFormat("yyyy-MM-dd").format(tanggalMulai!);
+      final xTanggalSelesai = DateFormat("yyyy-MM-dd").format(tanggalSelesai!);
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}';
+      final url = Uri.parse("${Env.api}/api/mobile/leave");
+      final headers = {"Content-type": "application/json"};
+      final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/$fileName/${company.id}");
+      final file = File(_image!.path);
 
-    final bytes = await file.readAsBytes();
 
-    final compressed = await FlutterImageCompress.compressWithList(
-      bytes,
-      minWidth: 1080,
-      minHeight: 1920,
-      quality: 50,
-      format: CompressFormat.jpeg,
-    );
-
-    final request = http.MultipartRequest('POST', uploadUrl);
-
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file', // field name
-        compressed, // file data
-        filename: fileName,
-        contentType: MediaType('image', 'png'),
-      ),
-    );
-
-    final streamedResponse = await request.send();
-
-    if (streamedResponse.statusCode != 200) {}
-
-    final responseBody = await streamedResponse.stream.bytesToString();
-
-    final uploadResponse = responseBody;
-
-    final selected = selectedValue == "Sakit" ? "s" : "c";
-
-    final params = {
-      'company_id': company.id,
-      'tanggal_request': xTanggalMulai,
-      'tanggal_request_end': xTanggalSelesai,
-      'catatan_awal': _reasonController.text,
-      'pegawai_id': other.pegawaiId,
-      'image':uploadResponse,
-      'tipe_request' : selected
-    };
-
-    try {
-      await http.post(
-        url, 
-        headers: headers, 
-        body: jsonEncode(params)
-      )
-      .timeout(
-        const Duration(seconds: 30)
-      );
-
-      Navigator.pushReplacementNamed(
-        context, '/'
-      );
-    } 
-    on TimeoutException catch(err) {
       showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
@@ -167,11 +142,18 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
           ),
           child: Row(
             children: [
-              Icon(Icons.error, color: Colors.white),
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "Request timeout",
+                  "Submiting your request",
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -179,32 +161,122 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
           ),
         ),
       );
-    } 
-    catch (e) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
-          margin: EdgeInsets.all(16),
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.error, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "gagal mengajukan cuti!",
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
+      
+
+      final bytes = await file.readAsBytes();
+
+      final compressed = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 1080,
+        minHeight: 1920,
+        quality: 50,
+        format: CompressFormat.jpeg,
+      );
+
+      final request = http.MultipartRequest('POST', uploadUrl);
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file', // field name
+          compressed, // file data
+          filename: fileName,
+          contentType: MediaType('image', 'png'),
         ),
       );
+
+      final streamedResponse = await request.send();
+
+      if (streamedResponse.statusCode != 200) {}
+
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      final uploadResponse = responseBody;
+
+      final selected = selectedValue == "Sakit" ? "s" : "c";
+
+      final params = {
+        'company_id': company.id,
+        'tanggal_request': xTanggalMulai,
+        'tanggal_request_end': xTanggalSelesai,
+        'catatan_awal': _reasonController.text,
+        'pegawai_id': other.pegawaiId,
+        'image':uploadResponse,
+        'tipe_request' : selected
+      };
+
+      try {
+        await http.post(
+          url, 
+          headers: headers, 
+          body: jsonEncode(params)
+        )
+        .timeout(
+          const Duration(seconds: 30)
+        );
+
+        Navigator.of(context).pop();
+
+        Navigator.pushReplacementNamed(
+          context, '/'
+        );
+      } 
+      on TimeoutException catch(err) {
+        Navigator.of(context).pop();
+
+
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Request timeout",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } 
+      catch (e) {
+        Navigator.of(context).pop();
+
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
     }
   }
 

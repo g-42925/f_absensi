@@ -45,6 +45,38 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
       };
 
       try {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Submiting your request",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
         final exc = await http.post(
           url,
           headers: headers,
@@ -54,19 +86,13 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
           const Duration(seconds: 30)
         );
 
-        if (jsonDecode(exc.body)['success']) {
-          Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-        } 
-        else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("coba beberapa saat lagi"),
-              duration: Duration(seconds: 30),
-            ),
-          );
+        Navigator.of(context).pop();
 
-          Navigator.pop(context);
-        }
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/', 
+          (route) => false
+        );
       } 
       on TimeoutException catch(err) {
         showModalBottomSheet(
@@ -111,7 +137,7 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    "gagal mengajukan pengecualian!",
+                    "something went wrong",
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
@@ -138,7 +164,7 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "Harap lengkapi data terlebih dahulu",
+                  "something went wrong",
                   style: TextStyle(color: Colors.white),
                 ),
               ),

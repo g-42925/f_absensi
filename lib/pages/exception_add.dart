@@ -73,9 +73,37 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
 
       if (!exceptionList.list.contains(identifier)) {
         try {
-          setState(() {
-            clicked = true;
-          });
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (_) => Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Submiting your request",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
 
           final bytes = await file.readAsBytes();
 
@@ -126,42 +154,13 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
             const Duration(seconds: 30)
           );
 
-          if (jsonDecode(exc.body)['success']) {
-            ref.read(globalStateProvider.notifier).addException(identifier);
-            Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-          } 
-          else {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (context) {
-                return Container(
-                  margin: EdgeInsets.all(16),
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error, color: Colors.white),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          "Request timeout, coba beberapa saat lagi",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
+          Navigator.of(context).pop();
+          Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
 
-            Navigator.pop(context);
-          }
         } 
         on TimeoutException catch(err) {
+          Navigator.of(context).pop();
+
           showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
@@ -179,7 +178,7 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        "Request timeout, coba beberapa saat lagi",
+                        "Request timeout",
                         style: TextStyle(color: Colors.white),
                       ),
                     ),
@@ -190,6 +189,7 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
           );          
         }
         catch (e) {
+          Navigator.of(context).pop();
           showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
@@ -217,26 +217,63 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
             },
           );          
         } 
-        finally {
-          setState(() {
-            clicked = false;
-          });
-        }
       } 
       else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("pengajuan pengecualian tidak valid"),
-            duration: Duration(seconds: 2),
-          ),
-        );
-
-        Navigator.pop(context);
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (context) {
+            return Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "something went wrong",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );  
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Harap lengkapi data terlebih dahulu")),
-      );
+    } 
+    else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Something went wrong",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );  
     }
   }
 
@@ -365,14 +402,9 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: clicked
-                        ? null
-                        : () {
-                            _submitForm(other.pegawaiId);
-                            setState(() {
-                              clicked = true;
-                            });
-                          },
+                    onPressed: () {
+                      _submitForm(other.pegawaiId);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: clicked ? Colors.red : Colors.green,
                       shape: RoundedRectangleBorder(

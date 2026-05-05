@@ -76,14 +76,13 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
     }
   }
 
-  Future<bool?> checkException(DateTime time) async{
+  Future<bool?> checkException(DateTime time,String reason) async{
     try{
       final globalState = ref.read(globalStateProvider);
       final pegawaiId = globalState.other.pegawaiId;
-      final url = Uri.parse("${Env.api}/api/mobile/hasException/$pegawaiId");
-      final response = await http.get(url).timeout(Duration(seconds: 30));
+      final url = Uri.parse("${Env.api}/api/mobile/hasException/$pegawaiId/$reason");
+      final response = await http.get(url).timeout(Duration(seconds: 10));
       if(response.statusCode == 200){
-        print(response.body);
         final data = jsonDecode(response.body);
         return data['hasException'];
       }
@@ -98,12 +97,12 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
 
   Future<DateTime?> getTime() async{
     try{
-      final response = await http.get(Uri.parse("https://time.now/developer/api/ip")).timeout(
-        Duration(seconds: 30)
+      final response = await http.get(Uri.parse("${Env.api}/api/mobile/timenow")).timeout(
+        Duration(seconds: 10)
       );
       if(response.statusCode == 200){
         final data = jsonDecode(response.body);
-        return DateTime.parse(data['datetime']);
+        return DateTime.parse(data['dateTime']);
       }
       else{
         return null;
@@ -392,11 +391,18 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.error, color: Colors.white),
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
                                     SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        "Request invalid",
+                                        "Checking for exception",
                                         style: TextStyle(color: Colors.white),
                                       ),
                                     ),
@@ -404,63 +410,101 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                 ),
                               ),
                             );
+                            bool? exception = await checkException(time, "Cuti setengah hari");
+
+                            if(exception == null){
+                              Navigator.of(context).pop();
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => Container(
+                                  margin: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.error, color: Colors.white),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          "Request invalid",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                            else{
+                              if(exception){
+                                Navigator.of(context).pop();
+                                ref.refresh(locationProvider);
+                                Navigator.pushNamed(
+                                  context,
+                                  '/signin',
+                                  arguments: {'ffocia': false},
+                                );                                
+                              }
+                              else{
+                                Navigator.of(context).pop();
+                                showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => Container(
+                                    margin: EdgeInsets.all(16),
+                                    padding: EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.error, color: Colors.white),
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            "Request invalid",
+                                            style: TextStyle(color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
                           }
                         } 
                         else {
-                          if(time == null){
-                            Navigator.of(context).pop();
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => Container(
-                                margin: EdgeInsets.all(16),
-                                padding: EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.error, color: Colors.white),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        "Time validation invalid",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                          Navigator.of(context).pop();
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => Container(
+                              margin: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            );
-                          }
-                          else{
-                            Navigator.of(context).pop();
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => Container(
-                                margin: EdgeInsets.all(16),
-                                padding: EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.error, color: Colors.white),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        "Request invalid",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "Request invalid",
+                                      style: TextStyle(color: Colors.white),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            );
-                          }
+                            ),
+                          );
                         }
                       },
                     ),
@@ -668,7 +712,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                                 ),
                               ),
                             );
-                            bool? exception = await checkException(time);
+                            bool? exception = await checkException(time,"Lupa absen");
 
                             if(exception != null){
                               Navigator.of(context).pop();

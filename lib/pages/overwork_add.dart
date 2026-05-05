@@ -63,12 +63,11 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
       );
 
       final start = ref.read(globalStateProvider).schedule.finish.split(":");
-      final time = await http.get(timeUri).timeout(Duration(seconds: 30));
+      final time = await http.get(Uri.parse("${Env.api}/api/timenow")).timeout(Duration(seconds: 10));
       final url = Uri.parse("${Env.api}/api/mobile/makeoverwork");
       final pegawaiId = ref.read(globalStateProvider).other.pegawaiId;
       final headers = {"Content-type": "application/json"};
-      final response = await http.get(timeUri).timeout(Duration(seconds: 30));
-      final _time = DateTime.parse(jsonDecode(time.body)['datetime']);
+      final _time = DateTime.parse(jsonDecode(time.body)['iso']);
 
       final custom = DateTime(_time.year, _time.month, _time.day,int.parse(start[0]), int.parse(start[1]), int.parse(start[2])).add(
         const Duration(minutes: 59)

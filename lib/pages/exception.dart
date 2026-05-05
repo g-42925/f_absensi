@@ -67,12 +67,12 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
 
   Future<DateTime?> getTime() async{
     try{
-      final response = await http.get(Uri.parse("https://time.now/developer/api/ip")).timeout(
-        Duration(seconds: 30)
+      final response = await http.get(Uri.parse("${Env.api}/api/mobile/timenow")).timeout(
+        Duration(seconds: 10)
       );
       if(response.statusCode == 200){
         final data = jsonDecode(response.body);
-        return DateTime.parse(data['datetime']);
+        return DateTime.parse(data['dateTime']);
       }
       else{
         return null;
