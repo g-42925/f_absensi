@@ -913,10 +913,27 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                           ),
                           IconLabel(
                             icon: Icons.cloud_upload,
-                            label: "Daftar Offline",
+                            label: "Offline",
                             onPressed: () {
                               Navigator.pushNamed(context, '/offline_list');
                             },
+                          ),
+                          IconLabel(
+                            icon: Icons.lock,
+                            label: 'Soon',
+                            isLocked: true,
+                          ),
+
+                          IconLabel(
+                            icon: Icons.lock,
+                            label: 'Soon',
+                            isLocked: true,
+                          ),
+
+                          IconLabel(
+                            icon: Icons.lock,
+                            label: 'Soon',
+                            isLocked: true,
                           ),
                         ],
                       ),
@@ -1033,10 +1050,12 @@ class IconLabel extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
+  final bool isLocked;
 
   const IconLabel({
     required this.icon,
     required this.label,
+    this.isLocked = false,
     this.onPressed, // optional
     super.key,
   });
@@ -1049,7 +1068,7 @@ class IconLabel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            backgroundColor: Colors.black,
+            backgroundColor: isLocked ? Colors.grey.shade400 : Colors.black,
             child: Icon(icon, color: Colors.white),
           ),
           const SizedBox(height: 4),

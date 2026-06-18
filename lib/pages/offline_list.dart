@@ -44,13 +44,7 @@ class _OfflineListPageState extends ConsumerState<OfflineListPage> {
     final monotonic = (currentMonotonic - fixedMonotonic).toInt();
     final syncedTime = serverTime.add(Duration(seconds: monotonic));
 
-    print("serverTime: $serverTime");
-    print("fixedMonotonic: $fixedMonotonic");
-    print("currentMonotonic: $currentMonotonic");
-    print("monotonic: $monotonic");
-    print("syncedTime: $syncedTime");
-   
-    
+
     final picker = ImagePicker();
     final XFile? photo = await picker.pickImage(source: ImageSource.camera);
 
@@ -58,62 +52,57 @@ class _OfflineListPageState extends ConsumerState<OfflineListPage> {
       setState(() {
         isProcessing = true;
       });
+      final inputImage = InputImage.fromFilePath(photo.path);
+      final faces = await faceDetector.processImage(inputImage);
+      if(faces.length > 0){
+        try {
+          final hasAccess = await Gal.hasAccess();
+          if (!hasAccess) await Gal.requestAccess();
+          final bytes = await photo.readAsBytes();
+          final watermarkedBytes = await compute(_processImage, {
+            'bytes': bytes,
+            'type': entry['type'],
+            'date': entry['date'],
+            'time': DateFormat('HH:mm:ss').format(syncedTime),
+          });
 
-      try {
-        // Request Permission for Gallery
-        final hasAccess = await Gal.hasAccess();
-        if (!hasAccess) {
-          await Gal.requestAccess();
-        }
-
-        final bytes = await photo.readAsBytes();
-
-        // Process image in isolate to avoid freezing UI
-        final watermarkedBytes = await compute(_processImage, {
-          'bytes': bytes,
-          'type': entry['type'],
-          'date': entry['date'],
-          'time': DateFormat('HH:mm:ss').format(syncedTime),
-        });
-
-        if (watermarkedBytes != null) {
-          final tempDir = await getTemporaryDirectory();
-          final tempFile = File(
-            '${tempDir.path}/watermarked_${entry['id']}.jpg',
-          );
-          await tempFile.writeAsBytes(watermarkedBytes);
-
-          await Gal.putImage(tempFile.path);
-
-          ref
-              .read(globalStateProvider.notifier)
-              .updateOfflineEntryPhoto(
-                entry['id'],
-                DateFormat('HH:mm:ss').format(DateTime.now()),
-              );
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Foto berhasil disimpan ke Galeri.'),
-              ),
+          if (watermarkedBytes != null) {
+            final tempDir = await getTemporaryDirectory();
+            final tempFile = File('${tempDir.path}/watermarked_${entry['id']}.jpg');
+            await tempFile.writeAsBytes(watermarkedBytes);
+            await Gal.putImage(tempFile.path);
+            ref.read(globalStateProvider.notifier).updateOfflineEntryPhoto(
+              entry['id'],
+              DateFormat('HH:mm:ss').format(DateTime.now()),
             );
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Foto berhasil disimpan ke Galeri.')),
+              );
+            }
+          }
+        } 
+        catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          }
+        } 
+        finally {
+          if (mounted) {
+            setState(() {
+              isProcessing = false;
+            });
           }
         }
-      } 
-      catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: $e')));
-        }
-      } 
-      finally {
-        if (mounted) {
-          setState(() {
-            isProcessing = false;
-          });
-        }
+      }
+      else{
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Wajah tidak terdeteksi.')),
+        );  
+        setState(() {
+          isProcessing = false;
+        });
       }
     }
   }
@@ -132,76 +121,73 @@ class _OfflineListPageState extends ConsumerState<OfflineListPage> {
       final inputImage = InputImage.fromFilePath(image.path);
       
       try{ 
-        final faces = await faceDetector.processImage(inputImage);
         final bytes = await image.readAsBytes();
-       
-        if(faces.length > 0){
-          final compressed = await FlutterImageCompress.compressWithList(
-            bytes,
-            minWidth: 1080,
-            minHeight: 1920,
-            quality: 50,
-            format: CompressFormat.jpeg, // penting, karena png lebih besar
+        final compressed = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: 1080,
+          minHeight: 1920,
+          quality: 50,
+          format: CompressFormat.jpeg, // penting, karena png lebih besar
+        );
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file', // field name
+            compressed, // file data
+            filename: fileName,
+            contentType: MediaType('image', 'jpeg'),
+          ),
+        );
+
+        final streamedResponse = await request.send();
+
+        if (streamedResponse.statusCode != 200) {
+          // do something
+        }
+
+        final responseBody = await streamedResponse.stream.bytesToString();
+        final uploadResponse = responseBody;
+
+        if(entry['type'] == "Sign In"){
+          final response = await http.post(
+            Uri.parse("${Env.api}/api/mobile/syncin"),
+            headers: {'Content-Type': 'application/json'},              
+            body: jsonEncode({
+              'empId':state.other.pegawaiId,
+              'captureTime': entry['captureTime'],
+              'photo': uploadResponse,
+            })
           );
-          request.files.add(
-            http.MultipartFile.fromBytes(
-              'file', // field name
-              compressed, // file data
-              filename: fileName,
-              contentType: MediaType('image', 'jpeg'),
-            ),
-          );
-
-          final streamedResponse = await request.send();
-
-          if (streamedResponse.statusCode != 200) {
-            // do something
-          }
-
-          final responseBody = await streamedResponse.stream.bytesToString();
-          final uploadResponse = responseBody;
-
-          if(entry['type'] == "Sign In"){
-            final response = await http.post(
-              Uri.parse("${Env.api}/api/mobile/syncin"),
-              headers: {'Content-Type': 'application/json'},              
-              body: jsonEncode({
-                'empId':state.other.pegawaiId,
-                'captureTime': entry['captureTime'],
-                'photo': uploadResponse,
-              })
-            );
-            print(response.body);
-
-            //ref.read(globalStateProvider.notifier).removeOfflineEntry(entry['id']);
-          }
-          else{
-            final response = await http.post(
-              Uri.parse("${Env.api}/api/mobile/syncout"),
-              headers: {'Content-Type': 'application/json'},              
-              body: jsonEncode({
-                'empId':state.other.pegawaiId,
-                'captureTime': entry['captureTime'],
-                'photo': uploadResponse,
-              })
-            );
-            print(response.body);
-            
-            //ref.read(globalStateProvider.notifier).removeOfflineEntry(entry['id']);
-          }
-          
+          print(response.body);
         }
         else{
-          print('face is not detected');
+          final response = await http.post(
+            Uri.parse("${Env.api}/api/mobile/syncout"),
+            headers: {'Content-Type': 'application/json'},              
+            body: jsonEncode({
+              'empId':state.other.pegawaiId,
+              'captureTime': entry['captureTime'],
+              'photo': uploadResponse,
+            })
+          );
+
+          if(jsonDecode(response.body)['success'] == true){
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Data berhasil disinkronkan.')),
+            );
+          }
+          else{
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Gagal sinkron data.')),
+            );  
+          }
         }
       }
       catch(err){
-        print(err);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal sinkron data.')),
+        );  
       }
     }
-
-
-
   }
 
   @override

@@ -23,7 +23,7 @@ class ServerTimeNotifier extends StateNotifier<ServerTimeState> {
 
   void _startTimer() {
     _fetchTime();
-    _timer = Timer.periodic(const Duration(seconds: 60), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 20), (timer) {
       _fetchTime();
     });
   }
