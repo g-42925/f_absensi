@@ -105,10 +105,9 @@ class _TaskPageState extends ConsumerState<TaskFilterPage> {
                       }
                       if (snapshot.hasError) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          showModalBottomSheet(
-                            context: context,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => Container(
+                          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                               margin: EdgeInsets.all(16),
                               padding: EdgeInsets.all(16),
                               decoration: BoxDecoration(
@@ -128,7 +127,11 @@ class _TaskPageState extends ConsumerState<TaskFilterPage> {
                                 ],
                               ),
                             ),
-                          );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                         });
                         return SizedBox();
                       } 

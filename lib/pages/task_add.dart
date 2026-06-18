@@ -45,10 +45,9 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
       };
 
       try {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -75,7 +74,11 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
               ],
             ),
           ),
-        );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
 
         final exc = await http.post(
           url,
@@ -86,8 +89,6 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
           const Duration(seconds: 30)
         );
 
-        Navigator.of(context).pop();
-
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/', 
@@ -95,10 +96,9 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
         );
       } 
       on TimeoutException catch(err) {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -118,13 +118,16 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
               ],
             ),
           ),
-        );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
       }
       catch (e) {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -144,14 +147,17 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
               ],
             ),
           ),
-        );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
       }
     } 
     else {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
           margin: EdgeInsets.all(16),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -170,6 +176,10 @@ class _TaskAddPageState extends ConsumerState<TaskAddPage> {
               ),
             ],
           ),
+        ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
         ),
       );
     }

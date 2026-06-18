@@ -15,6 +15,7 @@ class ActivityPage extends ConsumerStatefulWidget {
 
 class _ActivityPageState extends ConsumerState<ActivityPage> {
   Future<http.Response>? list;
+  bool _snackBarShown = false;
 
   Future<http.Response> getActivityList() async {
     final globalState = ref.read(globalStateProvider);
@@ -25,17 +26,16 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
 
     try {
       return await http.get(url).timeout(const Duration(seconds: 30));
-    } 
-    on TimeoutException catch(err) {
-      throw Error();
-    }
-    catch (err) {
-      throw Error();
+    } on TimeoutException catch (_) {
+      throw 'Request timeout';
+    } catch (_) {
+      throw 'Failed to load data';
     }
   }
 
   Future<void> fetch() async {
     setState(() {
+      _snackBarShown = false;
       list = getActivityList();
     });
   }
@@ -58,32 +58,38 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                   return Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => Container(
-                      margin: EdgeInsets.all(16),
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error, color: Colors.white),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                "Request timeout or something went wrong",
-                                style: TextStyle(color: Colors.white),
-                              ),
+                  if (!_snackBarShown) {
+                    _snackBarShown = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Container(
+                            margin: EdgeInsets.all(16),
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
-                        )
-                      ),
-                    );
-                  }); 
+                            child: Row(
+                              children: [
+                                Icon(Icons.error, color: Colors.white),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    "Request timeout or something went wrong",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            )
+                          ),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                        ),
+                      );
+                    }); 
+                  }
                   return SizedBox();
                 } 
                 else {
@@ -98,13 +104,13 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                     return Center(child: Text("Invalid server response"));
                   }
 
-                  if (data is! List) {
-                    return Center(child: Text("No activity available"));
-                  }
                   if (response.statusCode != 200) {
                     return Center(
                       child: Text("Server error: ${response.statusCode}"),
                     );
+                  }
+                  if (data is! List) {
+                    return Center(child: Text("No activity available"));
                   }
 
                   return ListView.builder(
@@ -124,7 +130,7 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                             leading: CircleAvatar(
                               child: Icon(
                                 Icons.notifications,
-                                color: notif['late'] as bool
+                                color: notif['late'] == true
                                     ? Colors.red
                                     : Colors.white,
                               ),
@@ -156,7 +162,7 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                             leading: CircleAvatar(
                               child: Icon(
                                 Icons.notifications,
-                                color: notif['late'] as bool
+                                color: notif['late'] == true
                                     ? Colors.red
                                     : Colors.white,
                               ),

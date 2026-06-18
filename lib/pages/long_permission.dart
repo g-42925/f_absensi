@@ -116,10 +116,9 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
       );
     } 
 		on TimeoutException catch(err) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
           margin: EdgeInsets.all(16),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -139,13 +138,16 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
             ],
           ),
         ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
 		}
 		catch (e) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
           margin: EdgeInsets.all(16),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -164,6 +166,10 @@ class _LongPermissionPageState extends ConsumerState<LongPermissionPage> {
               ),
             ],
           ),
+        ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
         ),
       );
     }

@@ -15,7 +15,7 @@ final locationProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   LocationPermission permission = await Geolocator.checkPermission();
 
   if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
+    // Permission is denied. We handle the request with disclosure in the UI.
   }
 
   if (permission == LocationPermission.deniedForever) {

@@ -73,10 +73,9 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
 
       if (!exceptionList.list.contains(identifier)) {
         try {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (_) => Container(
+          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
               margin: EdgeInsets.all(16),
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -103,7 +102,11 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                 ],
               ),
             ),
-          );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
 
           final bytes = await file.readAsBytes();
 
@@ -154,18 +157,13 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
             const Duration(seconds: 30)
           );
 
-          Navigator.of(context).pop();
           Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
 
         } 
         on TimeoutException catch(err) {
-          Navigator.of(context).pop();
-
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (context) {
-              return Container(
+          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -184,17 +182,17 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                     ),
                   ],
                 ),
-              );
-            },
-          );          
+              ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );          
         }
         catch (e) {
-          Navigator.of(context).pop();
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (context) {
-              return Container(
+          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -213,17 +211,18 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                     ),
                   ],
                 ),
-              );
-            },
-          );          
+              ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );          
         } 
       } 
       else {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (context) {
-            return Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
               margin: EdgeInsets.all(16),
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -242,17 +241,18 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                   ),
                 ],
               ),
-            );
-          },
-        );  
+            ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );  
       }
     } 
     else {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -271,8 +271,11 @@ class _ExceptionAddPageState extends ConsumerState<ExceptionAddPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );  
     }
   }

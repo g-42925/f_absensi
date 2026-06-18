@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/global_state.dart';
 import '../env/env.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -18,6 +20,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final url = Uri.parse("${Env.api}/api/mobile/loginv2");
+  
+  static const _channel = MethodChannel('uptime');
+
+
 
   bool visibility = false;
   bool loading = false;
@@ -129,6 +135,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           fotoPegawai: responseBody['result']['foto_pegawai'] ?? '',
           position: responseBody['result']['position'] ?? '',
           status: responseBody['result']['status_pegawai'] ?? '',
+          nik: responseBody['result']['nik'] ?? '',
         );
 
         final Holiday holiday = (
@@ -164,7 +171,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           tolerance: tolerance,
         );
 
-        final XPresence presence = (
+        print(coLimit);
+        print(ciLimit);
+        print(tolerance);
+
+        final XPresence presence = workSystem == "shift" ? (
+          ci:responseBody['result']['clock_in'],
+          co:responseBody['result']['clock_out'],
+        ) : (
           ci:responseBody['result']['jam_masuk'],
           co:responseBody['result']['jam_pulang'],
         );
@@ -176,19 +190,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           schedule: schedule,
           permission: (id: 0),
           location: (list: location.toList()),
-          position: (lat: 0, lon: 0),
+          position: (lat: 0.0, lon: 0.0),
           other: other,
-          history: [],
-          coordinate: (lat: 0, lon: 0),
+          history: <String>[],
+          coordinate: (lat: 0.0, lon: 0.0),
           holiday: holiday,
           breakInfo: (onBreak: false, startFrom: ''),
           overWork: overWork,
           config: config,
-          task: (started: [], finished: []),
-          exception: (list: []),
+          task: (started: <String>[], finished: <String>[]),
+          exception: (list: <String>[]),
           csh: (allowed: false),
-          reminder: (lastLat:0,lastLon:0),
-          presence: presence
+          reminder: (lastLat: 0.0, lastLon: 0.0),
+          presence: presence,
+          offlineEntries: <Map<String, dynamic>>[],
+          serverTimeInfo: (serverTime: null, upTime: null),
         ));
 
         Navigator.pushReplacementNamed(context, '/');
@@ -205,6 +221,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     }
     catch (e) {
+      print(e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -328,6 +345,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   TextButton(
                     onPressed: () {},
                     child: const Text("Don't have employee account yet?"),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () async {
+                      final url = Uri.parse("https://lerynsoftware.com/privacy");
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url);
+                      }
+                    },
+                    child: const Text(
+                      "Privacy Policy",
+                      style: TextStyle(
+                        color: Colors.grey,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
                 ],
               ),

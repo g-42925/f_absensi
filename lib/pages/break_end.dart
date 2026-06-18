@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
@@ -38,6 +39,96 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
   late Future<Position>? position;
   bool clicked = false;
   late Future<List<dynamic>> _future;
+  bool isCameraDenied = false;
+  bool _cameraDisclosureAccepted = false;
+
+  Future<void> showDisclosureDialog({required String title, required String message, required IconData icon, required VoidCallback onConfirm, required VoidCallback onDenied}) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Row(
+          children: [
+            Icon(icon, color: Colors.teal),
+            const SizedBox(width: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onDenied();
+            },
+            child: const Text(
+              "TUTUP",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("SETUJU \u0026 LANJUT"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> checkPermissions() async {
+    // Check Location
+    LocationPermission locPermission = await Geolocator.checkPermission();
+    if (locPermission == LocationPermission.denied) {
+      await showDisclosureDialog(
+        title: "Izin Lokasi",
+        message: "Aplikasi ini membutuhkan akses lokasi untuk memverifikasi kehadiran Anda di area kantor.",
+        icon: Icons.location_on,
+        onConfirm: () async {
+          await Geolocator.requestPermission();
+          ref.refresh(locationProvider);
+        },
+        onDenied: () {
+        },
+      );
+    }
+
+    // Check Camera
+    final prefs = await SharedPreferences.getInstance();
+    bool cameraDisclosed = prefs.getBool('camera_disclosed') ?? false;
+    if (!cameraDisclosed) {
+      await showDisclosureDialog(
+        title: "Izin Kamera",
+        message: "Aplikasi ini membutuhkan akses kamera untuk fitur verifikasi wajah saat melakukan absensi.",
+        icon: Icons.camera_alt,
+        onConfirm: () async {
+          await prefs.setBool('camera_disclosed', true);
+          setState(() {
+            _cameraDisclosureAccepted = true;
+          });
+        },
+        onDenied: () {
+          setState(() {
+            isCameraDenied = true;
+          });
+        }
+      );
+    } else {
+      setState(() {
+        _cameraDisclosureAccepted = true;
+      });
+    }
+  }
+
+
 
   Future<void> requestPositionPermission() async {
     setState(() {
@@ -76,7 +167,7 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     return byteData?.buffer as ByteBuffer;
   }
 
-    void captureAndUpload(String? pegawaiId) async {
+  void captureAndUpload(String? pegawaiId) async {
     final currentTime = DateTime.now();
 
     final uri = Uri.parse(Env.locationIqUrl).replace(
@@ -198,6 +289,10 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         );
 
         Navigator.pop(context);
+        setState(() {
+          preview = false;
+          clicked = false;
+        });
       } 
       else{
         Navigator.of(context).pop();
@@ -230,8 +325,6 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
           await Future.delayed(Duration(seconds: 1));
 
           setState(() {
-            latitude = latitude;
-            longitude = longitude;
             path = img.path;
             preview = false;
           });
@@ -246,11 +339,9 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     } 
     on TimeoutException catch (err) {
       Navigator.pop(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -269,8 +360,11 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
       setState(() {
         preview = false;
@@ -279,11 +373,9 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     }
     catch (err) {
       Navigator.pop(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -302,8 +394,11 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
       setState(() {
         preview = false;
@@ -487,7 +582,7 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
 								);
 							},           
 							child: Text(
-								"Masuk",
+								"Selesai",
 								style: TextStyle(
 										color: Colors.white, // warna teks putih
 										fontSize: 16,
@@ -532,7 +627,10 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkPermissions();
+    });
+    _controller = CameraController(widget.camera, ResolutionPreset.high, enableAudio: false);
     _initializeControllerFuture = _controller.initialize();
     _future = Future.wait([
       _initializeControllerFuture,
@@ -540,6 +638,12 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
     .then((value) {
       return value;
     });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -557,15 +661,23 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
         body: Center(child: Text('Gagal mengambil lokasi\n$err')),
       ),
 			data: (position){
-				WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           if(mounted){
-					  setState(() {
+            setState(() {
               latitude = position['position'].latitude;
               longitude = position['position'].longitude;
               isSuspicious = position['isSuspicious'];
             });
-					}
-       });
+          }
+        });
+
+        if(isCameraDenied){
+          return Scaffold(
+            body: Center(
+              child: Text('Camera denied'),
+            ),
+          );
+        }
 
         return Scaffold(
           appBar: !preview
@@ -580,6 +692,17 @@ class _BreakEndPageState extends ConsumerState<BreakEndPage> {
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Kamera gagal dimuat atau izin ditolak.\nSilakan periksa perizinan aplikasi.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
                 return preview ? setPreview() : setCamera();
               }  
               else {

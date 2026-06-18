@@ -233,7 +233,7 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
             SizedBox(height: 6),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: () async {
                   final now = DateTime.now();
                   final parsed = DateFormat("HH:mm").parse(widget.jamMasuk);
@@ -246,22 +246,15 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                   );
                   if (!btnIds.contains("l-${widget.requestIzinId}")) {
                     if (now.isBefore(jamMasukToday)) {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(20),
-                          ),
-                        ),
-                        builder: (context) {
-                          return FractionallySizedBox(
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: FractionallySizedBox(
                             heightFactor: 0.5, // setengah layar
                             child: Padding(
                               padding: const EdgeInsets.all(20),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
+                                children: const [
                                   Icon(
                                     Icons.error_outline,
                                     color: Colors.red,
@@ -288,8 +281,11 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                                 ],
                               ),
                             ),
-                          );
-                        },
+                          ),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                        ),
                       );
                     } 
                     else {
@@ -312,16 +308,8 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                     // cant click more
                   }
                 },
-                label: const Text(
-                  'Meninggalkan kantor',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: !btnIds.contains("l-${widget.requestIzinId}")
+                  backgroundColor: !btnIds.contains("l-${widget.requestIzinId}") // ignore: dead_code
                       ? Colors.red
                       : Colors.blue,
                   padding: const EdgeInsets.symmetric(
@@ -333,12 +321,20 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                   ),
                   elevation: 0, // tanpa shadow
                 ),
+                child: const Text(
+                  'Meninggalkan kantor',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: () async {
                   if (btnIds.contains("l-${widget.requestIzinId}")) {
                     if (!btnIds.contains("a-${widget.requestIzinId}")) {
@@ -364,14 +360,6 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                     // do something
                   }
                 },
-                label: const Text(
-                  'Sudah kembali',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: !btnIds.contains("a-${widget.requestIzinId}")
                       ? Colors.red
@@ -385,45 +373,56 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
                   ),
                   elevation: 0, // tanpa shadow
                 ),
+                child: const Text(
+                  'Sudah kembali',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             Container(
               child: response != null ? FutureBuilder(
                 future: response,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator());
                   } 
                   else {
                     if (snapshot.hasError) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          builder: (_) => Container(
-                          margin: EdgeInsets.all(16),
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.error, color: Colors.white),
-                                SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    "Request timeout or something went wrong",
-                                    style: TextStyle(color: Colors.white),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Container(
+                              margin: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: const [
+                                  Icon(Icons.error, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "Request timeout or something went wrong",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            )
+                                ],
+                              )
+                            ),
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
                           ),
                         );
                       }); 
-                      return SizedBox();  
+                      return const SizedBox();  
                     } 
                     else {
                       return Container();
@@ -440,3 +439,4 @@ class _PermissionHandlePageState extends ConsumerState<PermissionHandlePage> {
     );
   }
 }
+

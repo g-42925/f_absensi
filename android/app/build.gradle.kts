@@ -14,7 +14,7 @@ plugins {
 }
 
 android {
-    namespace = "com.leryn.absensi"
+    namespace = "com.leryn.f_absensi"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
@@ -28,11 +28,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.leryn.absensi"
+        applicationId = "com.leryn.f_absensi"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 64
-        versionName = "64.0.0"
+        versionCode = 67
+        versionName = "67.0.0"
     }
 
     packaging {

@@ -128,10 +128,9 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
         } 
         on TimeoutException catch(err) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (_) => Container(
+            ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -151,15 +150,18 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
                   ],
                 ),
               ),
-            );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
           });
         }
         on TimeoutException catch(err) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (_) => Container(
+            ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -179,15 +181,18 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
                   ],
                 ),
               ),
-            );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
           });
         }
         on Exception catch(err) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (_) => Container(
+            ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -207,7 +212,11 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
                   ],
                 ),
               ),
-            );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
           });
         }
         finally {
@@ -218,10 +227,9 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
       } 
       else {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (_) => Container(
+          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
               margin: EdgeInsets.all(16),
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -241,7 +249,11 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
                 ],
               ),
             ),
-          );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
         });
       }
     } 
@@ -250,10 +262,9 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
         clicked = false;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -273,7 +284,11 @@ class _HalfLeavePageState extends ConsumerState<HalfLeavePage> {
               ],
             ),
           ),
-        );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
       });
     }
   }

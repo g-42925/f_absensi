@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http_parser/http_parser.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
@@ -33,13 +34,14 @@ class OverWorkStartPage extends ConsumerStatefulWidget {
 }
 
 class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+  
+  
   final GlobalKey _globalKey = GlobalKey();
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
   bool clicked = false;
   Future<Position>? position;
+  CameraController? _controller2;
 
   final controller = TextEditingController();
 
@@ -58,6 +60,8 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
   String path = "";
 
   bool isSuspicious = false;
+  bool _cameraDisclosureAccepted = false;
+  bool _locationDisclosureAccepted = false;
 
   Future<void> requestPositionPermission() async {
     setState(() {
@@ -71,16 +75,94 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
     });
   }
 
+
+  Future<bool> showDisclosureDialog({required String title, required String message, required IconData icon, required VoidCallback onConfirm,required VoidCallback onDenied}) async {
+    final result = await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Row(
+          children: [
+            Icon(icon, color: Colors.teal),
+            const SizedBox(width: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onDenied();
+            },
+            child: const Text("TUTUP", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("SETUJU & LANJUT"),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> checkPermissions() async {
+    LocationPermission locPermission = await Geolocator.checkPermission();
+    if (locPermission == LocationPermission.denied) {
+      await showDisclosureDialog(
+        title: "Izin Lokasi",
+        message: "Aplikasi ini membutuhkan akses lokasi untuk memverifikasi kehadiran Anda di area kantor.",
+        icon: Icons.location_on,
+        onConfirm: () async {
+          await Geolocator.requestPermission();
+          ref.refresh(locationProvider);
+        },
+        onDenied: () {
+        },
+      );
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    bool cameraDisclosed = prefs.getBool('camera_disclosed') ?? false;
+    if (!cameraDisclosed) {
+      await showDisclosureDialog(
+        title: "Izin Kamera",
+        message: "Aplikasi ini membutuhkan akses kamera untuk fitur verifikasi wajah saat melakukan absensi.",
+        icon: Icons.camera_alt,
+        onConfirm: () async {
+          await prefs.setBool('camera_disclosed', true);
+          setState(() {
+            _cameraDisclosureAccepted = true;
+          });
+        },
+        onDenied: () {
+          setState(() {
+            _cameraDisclosureAccepted = true;
+          });
+        }
+      );
+    } else {
+      setState(() {
+        _cameraDisclosureAccepted = true;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
-    _initializeControllerFuture = _controller.initialize();
-    _future = Future.wait([
-      _initializeControllerFuture,
-    ])
-    .then((value) {
-      return value;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkPermissions();
     });
   }
 
@@ -166,7 +248,7 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
       final state = ref.read(globalStateProvider);
       final other = state.other;
       final company = state.company;
-      final img = await _controller.takePicture();
+      final img = await _controller2!.takePicture();
       final requestResponse = await http.get(uri);
       final response = jsonDecode(requestResponse.body);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
@@ -321,11 +403,9 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
     } 
     on TimeoutException catch (err) {
       Navigator.pop(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -344,8 +424,11 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
       setState(() {
         preview = false;
@@ -355,11 +438,9 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
     catch (err) {
       print(err);
       Navigator.pop(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -378,8 +459,11 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
       setState(() {
         preview = false;
@@ -479,7 +563,7 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
             child: SizedBox(
               width: 300,
               height: 300,
-              child: CameraPreview(_controller),
+              child: CameraPreview(_controller2!),
            ),
           ),
         ),
@@ -555,70 +639,55 @@ class _OverWorkStartPageState extends ConsumerState<OverWorkStartPage> {
     );   
   }
 
-    @override Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final locs = ref.watch(locationProvider);
     
     return locs.when(
-			loading: () => const Scaffold(
+      loading: () => const Scaffold(
         body: Center(child: Text('please wait')),
       ),
-			error: (err, _) => Scaffold(
+      error: (err, _) => Scaffold(
         body: Center(child: Text('Gagal mengambil lokasi\n$err')),
       ),
-			data: (position){
-				WidgetsBinding.instance.addPostFrameCallback((_) {
-          if(mounted){
-					  setState(() {
+      data: (position) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
               latitude = position['position'].latitude;
               longitude = position['position'].longitude;
               isSuspicious = position['isSuspicious'];
             });
-					}
+          }
         });
-        return locs.when(
-			    loading: () => const Scaffold(
-            body: Center(child: Text('please wait')),
-          ),
-			    error: (err, _) => Scaffold(
-            body: Center(child: Text('Gagal mengambil lokasi\n$err')),
-          ),
-		 	    data: (position){
-				    WidgetsBinding.instance.addPostFrameCallback((_) {
-              if(mounted){
-					      setState(() {
-                  latitude = position['position'].latitude;
-                  longitude = position['position'].longitude;
-                });
-				     	}
-            });
 
-            return Scaffold(
-              appBar: !preview
-              ? 
-              AppBar(
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                )
-              : 
-              null,
-              body: FutureBuilder(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.done) {
-                      return preview ? setPreview() : setCamera(args);
-                  }  
-                  else {
-                    return Center(child: CircularProgressIndicator());
-                  }
-                },
+        if (_controller2 == null && _cameraDisclosureAccepted) {
+          _controller2 = CameraController(widget.camera, ResolutionPreset.high, enableAudio: false);
+          _future = _controller2!.initialize().then((_) { if(mounted) setState((){}); return [_controller2]; });
+        }
+
+        return Scaffold(
+          appBar: !preview
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
               ),
-            );
-	        }
-		    );
-	    }
-		);
+            )
+          : null,
+          body: FutureBuilder(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                  return preview ? setPreview() : setCamera(args);
+              }  
+              else {
+                return const Center(child: CircularProgressIndicator());
+              }
+            },
+          ),
+        );
+      }
+    );
   }
 }

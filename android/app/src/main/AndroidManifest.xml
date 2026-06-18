@@ -1,10 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application
         android:label="Leryn Absensi"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
-            android:usesCleartextTraffic="true"
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
@@ -32,6 +32,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        
+        <!-- Prevent Foreground Services injected by location plugins from causing Play Console Rejection -->
+        <service android:name="com.lyokone.location.FlutterLocationService" tools:node="remove" />
+        <service android:name="com.baseflow.geolocator.GeolocatorLocationService" tools:node="remove" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -48,8 +52,16 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Remove RECORD_AUDIO (injected by camera plugin) since it's an attendance app and audio is not used. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    
+    <!-- Remove Foreground Service permissions injected by location plugins to pass Play Store review -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove" />
+
+    <!-- Optionalize Camera Hardware to avoid restricting devices without a camera from seeing the app (best practice) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 </manifest>

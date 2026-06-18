@@ -196,7 +196,7 @@ class _SalarySlipPageState extends ConsumerState<SalarySlipPage> {
 
                 // Info Karyawan
                 buildInfoRow("Nama", other.namaPegawai),
-                buildInfoRow("NIK", other.pegawaiId),
+                buildInfoRow("NIK", other.nik),
                 buildInfoRow("Jabatan", other.position),
                 buildInfoRow("Status", other.status),
 

@@ -126,10 +126,9 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
           }
           if (snapshot.hasError) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: Colors.transparent,
-                builder: (_) => Container(
+              ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                   margin: EdgeInsets.all(16),
                   padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -149,7 +148,11 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                     ],
                   ),
                 ),
-              );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
             }); 
             return SizedBox();
           } 
@@ -186,10 +189,9 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                           child: item['type'] == "Absen masuk" ? TextButton(
                             child: Text("Presensi masuk"),
                             onPressed: () async {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => Container(
+                              ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                   margin: EdgeInsets.all(16),
                                   padding: EdgeInsets.all(16),
                                   decoration: BoxDecoration(
@@ -216,13 +218,16 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                     ],
                                   ),
                                 ),
-                              );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                               final time = await getTime();
                               if (item['status'] == "1") {
                                 if (!status.signedIn) {
                                   if (time!.isBefore(makeLimit(schedule.start.split(':'), config.tolerance + config.ciLimit))) {
                                     if (time.isAfter(makeLimit(schedule.start.split(':'), 0).subtract(Duration(minutes: 60)))) {
-                                      Navigator.of(context).pop();
                                       Navigator.pushNamed(
                                         context,
                                         '/signin',
@@ -230,11 +235,9 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                       );
                                     } 
                                     else {
-                                      Navigator.of(context).pop();
-                                      showModalBottomSheet(
-                                        context: context,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (_) => Container(
+                                      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                           margin: EdgeInsets.all(16),
                                           padding: EdgeInsets.all(16),
                                           decoration: BoxDecoration(
@@ -254,15 +257,17 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                             ],
                                           ),
                                         ),
-                                      );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                                     }
                                   }
                                   else{
-                                    Navigator.of(context).pop();
-                                    showModalBottomSheet(
-                                      context: context,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (_) => Container(
+                                    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                         margin: EdgeInsets.all(16),
                                         padding: EdgeInsets.all(16),
                                         decoration: BoxDecoration(
@@ -282,15 +287,17 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                           ],
                                         ),
                                       ),
-                                    );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                                   }
                                 } 
                                 else {
-                                  Navigator.of(context).pop();
-                                  showModalBottomSheet(
-                                    context: context,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (_) => Container(
+                                  ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                       margin: EdgeInsets.all(16),
                                       padding: EdgeInsets.all(16),
                                       decoration: BoxDecoration(
@@ -310,15 +317,17 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                         ],
                                       ),
                                     ),
-                                  );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                                 }
                               } 
                               else {
-                                Navigator.of(context).pop();
-                                showModalBottomSheet(
-                                  context: context,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (_) => Container(
+                                ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                     margin: EdgeInsets.all(16),
                                     padding: EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -338,7 +347,11 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                       ],
                                     ),
                                   ),
-                                );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                               }
                             },
                           )
@@ -349,10 +362,9 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                           child: item['type'] == "Lainnya" ? TextButton(
                             child: Text("Presensi masuk"),
                             onPressed: () async {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => Container(
+                              ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                   margin: EdgeInsets.all(16),
                                   padding: EdgeInsets.all(16),
                                   decoration: BoxDecoration(
@@ -379,7 +391,11 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                     ],
                                   ),
                                 ),
-                              );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                               final time = await getTime();
                               if (item['status'] == "1") {
                                 if (!status.signedIn) {
@@ -420,11 +436,9 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                 }
                               } 
                               else {
-                                Navigator.of(context).pop();
-                                showModalBottomSheet(
-                                  context: context,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (_) => Container(
+                                ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                     margin: EdgeInsets.all(16),
                                     padding: EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -444,7 +458,11 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                       ],
                                     ),
                                   ),
-                                );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                               }
                             },
                           )
@@ -482,10 +500,9 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                           child: item['type'] == "Absen pulang" ? TextButton(
                             child: Text("Presensi pulang"),
                             onPressed: () async {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => Container(
+                              ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                   margin: EdgeInsets.all(16),
                                   padding: EdgeInsets.all(16),
                                   decoration: BoxDecoration(
@@ -512,12 +529,15 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                     ],
                                   ),
                                 ),
-                              );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                               final time = await getTime();                              
                               if (time!.isBefore(makeLimit(schedule.finish.split(':'), config.coLimit))) {
                                 if (!time.isBefore(makeLimit(schedule.finish.split(':'), 0))) {
                                   if (item["status"] == "1") {
-                                    Navigator.of(context).pop();
                                     ref.read(globalStateProvider.notifier).fFOCOMakeAllowed();
                                     Navigator.pushNamed(
                                       context,
@@ -526,11 +546,9 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                     );
                                   } 
                                   else {
-                                    Navigator.of(context).pop();
-                                    showModalBottomSheet(
-                                      context: context,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (_) => Container(
+                                    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                         margin: EdgeInsets.all(16),
                                         padding: EdgeInsets.all(16),
                                         decoration: BoxDecoration(
@@ -550,15 +568,17 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                           ],
                                         ),
                                       ),
-                                    );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                                   }
                                 } 
                                 else {
-                                  Navigator.of(context).pop();
-                                  showModalBottomSheet(
-                                    context: context,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (_) => Container(
+                                  ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                       margin: EdgeInsets.all(16),
                                       padding: EdgeInsets.all(16),
                                       decoration: BoxDecoration(
@@ -578,15 +598,17 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                         ],
                                       ),
                                     ),
-                                  );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                                 }
                               } 
                               else {
-                                Navigator.of(context).pop();
-                                showModalBottomSheet(
-                                  context: context,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (_) => Container(
+                                ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                                     margin: EdgeInsets.all(16),
                                     padding: EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -606,7 +628,11 @@ class _ExceptionPageState extends ConsumerState<ExceptionPage> {
                                       ],
                                     ),
                                   ),
-                                );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
                               }
                             },
                           )

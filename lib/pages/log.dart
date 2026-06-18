@@ -67,10 +67,9 @@ class _LogPageState extends ConsumerState<LogPage>{
 								} 
 								if (snapshot.hasError) {
 									WidgetsBinding.instance.addPostFrameCallback((_) {
-										showModalBottomSheet(
-											context: context,
-											backgroundColor: Colors.transparent,
-											builder: (_) => Container(
+										ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
 												margin: EdgeInsets.all(16),
 												padding: EdgeInsets.all(16),
 												decoration: BoxDecoration(
@@ -90,7 +89,11 @@ class _LogPageState extends ConsumerState<LogPage>{
 													],
 												),
 											),
-										);
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
 									});
 
 									return SizedBox();

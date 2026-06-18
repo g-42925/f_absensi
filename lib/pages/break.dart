@@ -30,6 +30,8 @@ class _BreakPageState extends ConsumerState<BreakPage> {
   String _timeString = "";
   double _progress = 0;
 
+  bool isCameraDenied = false;
+
   double toRad(double degree) {
     return degree * pi / 180;
   }
@@ -72,9 +74,7 @@ class _BreakPageState extends ConsumerState<BreakPage> {
     double interval = (diff / 1000) * 1000;
 
     // timer tiap 1 detik
-    _timer = Timer.periodic(Duration(milliseconds: interval.round()), (
-      Timer t,
-    ) {
+    _timer = Timer.periodic(Duration(milliseconds: interval.round()), (Timer t) {
       setState(() {
         _timeString = _formatDateTime(DateTime.now());
       });
@@ -140,11 +140,9 @@ class _BreakPageState extends ConsumerState<BreakPage> {
       );
     }
     on TimeoutException catch (err) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -163,16 +161,17 @@ class _BreakPageState extends ConsumerState<BreakPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
     }
     catch (err) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -191,8 +190,11 @@ class _BreakPageState extends ConsumerState<BreakPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
     }
   }

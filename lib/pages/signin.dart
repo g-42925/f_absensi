@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
@@ -61,11 +62,75 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   String path = "";
 
-  Future<dynamic> requestLocation() async{
-    LocationPermission permission = await Geolocator.requestPermission();
-    
-    if(permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+  bool isCameraDenied = false;
+  bool _cameraDisclosureAccepted = false;
+
+  Future<bool> showDisclosureDialog({required String title, required String message, required IconData icon, required VoidCallback onConfirm,required VoidCallback onDenied}) async {
+    final result = await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Row(
+          children: [
+            Icon(icon, color: Colors.teal),
+            const SizedBox(width: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onDenied();
+            },
+            child: const Text("TUTUP", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("SETUJU \u0026 LANJUT"),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
+  }
+
+  Future<dynamic> requestLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      bool userAgreed = false;
+      await showDisclosureDialog(
+        title: "Izin Lokasi",
+        message: "Leryn Absensi mengumpulkan data lokasi untuk memverifikasi bahwa Anda berada di area kantor saat melakukan Check-in dan Check-out. Data ini hanya diambil saat Anda menekan tombol absen.",
+        icon: Icons.location_on,
+        onConfirm: () {
+          userAgreed = true;
+        },
+        onDenied: () {},
+      );
+
+      if (userAgreed) {
+        permission = await Geolocator.requestPermission();
+      } 
+      else {
+        return Future.error("Izin lokasi ditolak oleh pengguna");
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error("Izin lokasi ditolak secara permanen. Silakan aktifkan di pengaturan.");
     }
 
     return Geolocator.getCurrentPosition();
@@ -81,6 +146,9 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkPermissions();
+    });
   }
 
   double toRad(double degree) {
@@ -125,6 +193,51 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
       return distance <= 50;
     });
+  }
+
+
+  Future<void> checkPermissions() async {
+    // Check Location
+    LocationPermission locPermission = await Geolocator.checkPermission();
+    if (locPermission == LocationPermission.denied) {
+      await showDisclosureDialog(
+        title: "Izin Lokasi",
+        message: "Aplikasi ini membutuhkan akses lokasi untuk memverifikasi kehadiran Anda di area kantor.",
+        icon: Icons.location_on,
+        onConfirm: () async {
+          await Geolocator.requestPermission();
+          ref.refresh(locationProvider);
+        },
+        onDenied: () {
+        },
+      );
+    }
+
+    // Check Camera
+    final prefs = await SharedPreferences.getInstance();
+    bool cameraDisclosed = prefs.getBool('camera_disclosed') ?? false;
+    if (!cameraDisclosed) {
+      await showDisclosureDialog(
+        title: "Izin Kamera",
+        message: "Aplikasi ini membutuhkan akses kamera untuk fitur verifikasi wajah saat melakukan absensi.",
+        icon: Icons.camera_alt,
+        onConfirm: () async {
+          await prefs.setBool('camera_disclosed', true);
+          setState(() {
+            _cameraDisclosureAccepted = true;
+          });
+        },
+        onDenied: () {
+          setState(() {
+            isCameraDenied = true;
+          });
+        }
+      );
+    } else {
+      setState(() {
+        _cameraDisclosureAccepted = true;
+      });
+    }
   }
 
   String setLocation(double latitude, double longitude) {
@@ -377,17 +490,9 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             clicked = false;
           });
 
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            isDismissible: true, // bisa ditutup tap di luar
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            builder: (context) {
-              return SizedBox(
-                width:double.infinity,
-                child:Container(
+          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.vertical(
@@ -414,10 +519,12 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                       )
                     ]
                   )
-                )
-              );
-            },
-          );
+                ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
         }
       } 
       else {
@@ -436,11 +543,9 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     } 
     on TimeoutException catch (err) {
       Navigator.pop(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -459,8 +564,11 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
       setState(() {
         preview = false;
@@ -469,11 +577,9 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     }
     catch (err) {
       Navigator.pop(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -492,8 +598,11 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
       setState(() {
         preview = false;
@@ -677,7 +786,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         body: Center(child: Text('please wait')),
       ),
 			error: (err, _) => Scaffold(
-        body: Center(child: Text('Gagal mengambil lokasi\n$err')),
+        body: Center(child: Text('Location access is denied')),
       ),
 			data: (position){
 				WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -690,9 +799,15 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 					}
         });
 
-        if (_controller == null) {
-          _controller = CameraController(widget.camera, ResolutionPreset.high);
+        if (_controller == null && _cameraDisclosureAccepted) {
+          _controller = CameraController(widget.camera, ResolutionPreset.high, enableAudio: false);
           _cameraFuture = _controller!.initialize();
+        }
+
+        if(isCameraDenied){
+          return Scaffold(
+            body: Center(child: Text('Camera access is denied')),
+          );
         }
 
         return Scaffold(

@@ -90,11 +90,9 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
 
   void _submitForm(int quota) async {
     if(!_formKey.currentState!.validate() || (tanggalMulai == null || tanggalSelesai == null)){
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -113,8 +111,11 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );         
     }
     else{
@@ -130,10 +131,9 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
       final file = File(_image!.path);
 
 
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
           margin: EdgeInsets.all(16),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -159,6 +159,10 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
               ),
             ],
           ),
+        ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
         ),
       );
       
@@ -214,20 +218,14 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
           const Duration(seconds: 30)
         );
 
-        Navigator.of(context).pop();
-
         Navigator.pushReplacementNamed(
           context, '/'
         );
       } 
       on TimeoutException catch(err) {
-        Navigator.of(context).pop();
-
-
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -247,15 +245,16 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
               ],
             ),
           ),
-        );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
       } 
       catch (e) {
-        Navigator.of(context).pop();
-
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -275,7 +274,11 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
               ],
             ),
           ),
-        );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
       }
     }
   }

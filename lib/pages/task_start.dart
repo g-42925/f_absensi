@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
@@ -36,8 +37,6 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
   bool preview = false;
   Future<Position>? position;
 
-  late Future<List<dynamic>> _future;
-
 
   final controller = TextEditingController();
 
@@ -55,6 +54,48 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 
   bool isSuspicious = false;
 
+  bool isCameraDenied = false;
+  bool _cameraDisclosureAccepted = false;
+
+  Future<void> showDisclosureDialog({required String title, required String message, required IconData icon, required VoidCallback onConfirm,required VoidCallback onDenied}) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Row(
+          children: [
+            Icon(icon, color: Colors.teal),
+            const SizedBox(width: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onDenied();
+            },
+            child: const Text("TUTUP", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("SETUJU \u0026 LANJUT"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<dynamic> requestLocation() async{
     LocationPermission permission = await Geolocator.requestPermission();
     
@@ -71,9 +112,19 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
     super.dispose(); 
   }
 
+  void _initCamera() {
+    _controller = CameraController(widget.camera, ResolutionPreset.high, enableAudio: false);
+    setState(() {
+      _cameraFuture = _controller!.initialize();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkPermissions();
+    });
   }
 
 
@@ -119,6 +170,52 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 
       return distance <= 50; // true jika ada lokasi dalam 50 meter
     });
+  }
+
+  Future<void> checkPermissions() async {
+    // Check Location
+    LocationPermission locPermission = await Geolocator.checkPermission();
+    if (locPermission == LocationPermission.denied) {
+      await showDisclosureDialog(
+        title: "Izin Lokasi",
+        message: "Aplikasi ini membutuhkan akses lokasi untuk memverifikasi kehadiran Anda di area kantor.",
+        icon: Icons.location_on,
+        onConfirm: () async {
+          await Geolocator.requestPermission();
+          ref.refresh(locationProvider);
+        },
+        onDenied: () {
+        },
+      );
+    }
+
+    // Check Camera
+    final prefs = await SharedPreferences.getInstance();
+    bool cameraDisclosed = prefs.getBool('camera_disclosed') ?? false;
+    if (!cameraDisclosed) {
+      await showDisclosureDialog(
+        title: "Izin Kamera",
+        message: "Aplikasi ini membutuhkan akses kamera untuk fitur verifikasi wajah saat melakukan absensi.",
+        icon: Icons.camera_alt,
+        onConfirm: () async {
+          await prefs.setBool('camera_disclosed', true);
+          setState(() {
+            _cameraDisclosureAccepted = true;
+          });
+          _initCamera();
+        },
+        onDenied: () {
+          setState(() {
+            isCameraDenied = true;
+          });
+        }
+      );
+    } else {
+      setState(() {
+        _cameraDisclosureAccepted = true;
+      });
+      _initCamera();
+    }
   }
 
   String setLocation(double latitude, double longitude) {
@@ -310,11 +407,9 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
     } 
     on TimeoutException catch (err) {
       Navigator.pop(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -333,8 +428,11 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
                 ),
               ],
             ),
-          );
-        },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
       setState(() {
         preview = false;
@@ -529,9 +627,10 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 					}
         });
 
-        if (_controller == null) {
-          _controller = CameraController(widget.camera, ResolutionPreset.high);
-          _cameraFuture = _controller!.initialize();
+        if(isCameraDenied){
+          return Scaffold(
+            body: Center(child: Text('Camera access is denied')),
+          );
         }
 
         return Scaffold(
@@ -544,10 +643,23 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
               ),
             )
            : null,
-           body: FutureBuilder(
+           body: _cameraFuture == null
+           ? const Center(child: CircularProgressIndicator())
+           : FutureBuilder(
             future: _cameraFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Kamera gagal dimuat:\n${snapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
                return preview ? setPreview(args['task_id']) : setCamera(args['task_id']);
               } 
               else {

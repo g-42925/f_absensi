@@ -30,10 +30,9 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
 
 
     try{
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
           margin: EdgeInsets.all(16),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -60,6 +59,10 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             ],
           ),
         ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );
 
       final start = ref.read(globalStateProvider).schedule.finish.split(":");
@@ -73,8 +76,6 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
         const Duration(minutes: 59)
       );
 
-      Navigator.of(context).pop();
-
       if (_formKey.currentState!.validate() && _selectedDateTime != null) {
         if (_selectedDateTime!.isAfter(custom)) {
           final overWorkData = {
@@ -84,10 +85,9 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             "employee_id": pegawaiId,
           };
 
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (_) => Container(
+          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
               margin: EdgeInsets.all(16),
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -114,7 +114,11 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
                 ],
               ),
             ),
-          );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
 
           final exc = await http.post(
             url,
@@ -125,8 +129,6 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             const Duration(seconds: 30)
           );
 
-          Navigator.of(context).pop();
-
           if (jsonDecode(exc.body)['success']) {
             Navigator.pushNamedAndRemoveUntil(
               context,
@@ -135,10 +137,9 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             );
           } 
           else {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (_) => Container(
+            ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -158,14 +159,17 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
                   ],
                 ),
               ),
-            );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
           }
         } 
         else {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (_) => Container(
+          ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
               margin: EdgeInsets.all(16),
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -185,14 +189,17 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
                 ],
               ),
             ),
-          );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
         }
       } 
       else {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => Container(
+        ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
             margin: EdgeInsets.all(16),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -212,14 +219,17 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
               ],
             ),
           ),
-        );
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
+      );
       }
     }
     on TimeoutException catch(e){
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
           margin: EdgeInsets.all(16),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -239,13 +249,16 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
             ],
           ),
         ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+        ),
       );    
     }
     catch(e){
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
           margin: EdgeInsets.all(16),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -264,6 +277,10 @@ class _OverWorkAddPageState extends ConsumerState<OverWorkAddPage> {
               ),
             ],
           ),
+        ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
         ),
       );
     }  
