@@ -89,7 +89,7 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
   }
 
   void _submitForm(int quota) async {
-    if(!_formKey.currentState!.validate() || (tanggalMulai == null || tanggalSelesai == null)){
+    if(!_formKey.currentState!.validate() || (tanggalMulai == null || tanggalSelesai == null || _image == null)){
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Container(
@@ -167,60 +167,73 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
       );
       
 
-      final bytes = await file.readAsBytes();
-
-      final compressed = await FlutterImageCompress.compressWithList(
-        bytes,
-        minWidth: 1080,
-        minHeight: 1920,
-        quality: 50,
-        format: CompressFormat.jpeg,
-      );
-
-      final request = http.MultipartRequest('POST', uploadUrl);
-
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file', // field name
-          compressed, // file data
-          filename: fileName,
-          contentType: MediaType('image', 'png'),
-        ),
-      );
-
-      final streamedResponse = await request.send();
-
-      if (streamedResponse.statusCode != 200) {}
-
-      final responseBody = await streamedResponse.stream.bytesToString();
-
-      final uploadResponse = responseBody;
-
-      final selected = selectedValue == "Sakit" ? "s" : "c";
-
-      final params = {
-        'company_id': company.id,
-        'tanggal_request': xTanggalMulai,
-        'tanggal_request_end': xTanggalSelesai,
-        'catatan_awal': _reasonController.text,
-        'pegawai_id': other.pegawaiId,
-        'image':uploadResponse,
-        'tipe_request' : selected
-      };
-
       try {
-        await http.post(
-          url, 
-          headers: headers, 
-          body: jsonEncode(params)
-        )
-        .timeout(
-          const Duration(seconds: 30)
+        final bytes = await file.readAsBytes();
+
+        final compressed = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: 1080,
+          minHeight: 1920,
+          quality: 50,
+          format: CompressFormat.jpeg,
         );
 
-        Navigator.pushReplacementNamed(
-          context, '/'
+        final request = http.MultipartRequest('POST', uploadUrl);
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file', // field name
+            compressed, // file data
+            filename: fileName,
+            contentType: MediaType('image', 'png'),
+          ),
         );
+
+        final streamedResponse = await request.send().timeout(const Duration(seconds: 10));
+
+        if(streamedResponse.statusCode < 200 ||  streamedResponse.statusCode >= 300){
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Container(
+                margin: EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Something went wrong",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              padding: EdgeInsets.zero,
+            ),
+          );
+        }
+        else{
+          await http.post(
+            url, 
+            headers: headers, 
+            body: jsonEncode(params)
+          )
+          .timeout(
+            const Duration(seconds: 30)
+          );
+
+          Navigator.pushReplacementNamed(
+            context, '/'
+          );
+        }
       } 
       on TimeoutException catch(err) {
         ScaffoldMessenger.of(context).showSnackBar(

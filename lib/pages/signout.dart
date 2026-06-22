@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import '../env/env.dart';
 import '../providers/global_state.dart';
 import '../providers/location_provider.dart';
@@ -54,6 +54,12 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   bool isCameraDenied = false;
   bool _cameraDisclosureAccepted = false;
+
+  final faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.fast,
+    ),
+  );
 
 
   Future<dynamic> requestLocation() async{
@@ -250,6 +256,10 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       final formattedSecond = DateFormat('HH:mm:ss').format(now);
       final uploadUrl = Uri.parse("${Env.api}/filebase/attendance/$fileName/${company.id}");
 
+      final inputImage = InputImage.fromFilePath(img.path);
+
+      final faces = await faceDetector.processImage(inputImage);
+
 
       loc['address'] = response['display_name'];
 
@@ -290,64 +300,65 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
         ),
       );
 
-      final request = http.MultipartRequest('POST', uploadUrl);
+      if(faces.length > 0) {
+        final request = http.MultipartRequest('POST', uploadUrl);
 
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file', // field name
-          compressed, // file data
-          filename: fileName,
-          contentType: MediaType('image', 'png'),
-        ),
-      );
-
-
-      final streamedResponse = await request.send();
-
-      if (streamedResponse.statusCode != 200) {}
-
-      final responseBody = await streamedResponse.stream.bytesToString();
-
-      final uploadResponse = responseBody;
-
-      final params = {
-        "jam_keluar": formattedTime,
-        "foto_absen_keluar": uploadResponse,
-        "latitude_keluar": latitude,
-        "longitude_keluar": longitude,
-        "pegawai_id": pegawaiId,
-        "csh": csh,
-        "is_mock": isSuspicious,
-      };
-
-      if(state.config.ffocoa || isOnOffice(latitude, longitude)) {
-        final xRequest = await http.post(
-          url,
-          headers: headers,
-          body: jsonEncode(params),
-        )
-        .timeout(
-          const Duration(seconds: 30)
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file', // field name
+            compressed, // file data
+            filename: fileName,
+            contentType: MediaType('image', 'png'),
+          ),
         );
 
-        final xResponse = jsonDecode(xRequest.body);
 
-        if (!xResponse['success']) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Container(
-                margin: EdgeInsets.all(16),
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error, color: Colors.white),
-                    SizedBox(width: 10),
-                    Expanded(
+        final streamedResponse = await request.send();
+
+        if (streamedResponse.statusCode != 200) {}
+
+        final responseBody = await streamedResponse.stream.bytesToString();
+
+        final uploadResponse = responseBody;
+
+        final params = {
+          "jam_keluar": formattedTime,
+          "foto_absen_keluar": uploadResponse,
+          "latitude_keluar": latitude,
+          "longitude_keluar": longitude,
+          "pegawai_id": pegawaiId,
+          "csh": csh,
+          "is_mock": isSuspicious,
+        };
+
+        if(state.config.ffocoa || isOnOffice(latitude, longitude)) {
+          final xRequest = await http.post(
+            url,
+            headers: headers,
+            body: jsonEncode(params),
+          )
+          .timeout(
+            const Duration(seconds: 30)
+          );
+
+          final xResponse = jsonDecode(xRequest.body);
+
+          if (!xResponse['success']) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Container(
+                  margin: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error, color: Colors.white),
+                      SizedBox(width: 10),
+                      Expanded(
                       child: Text(
                         "something went wrong",
                         style: TextStyle(color: Colors.white),
@@ -355,99 +366,133 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                     ),
                   ],
                 ),
+                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                padding: EdgeInsets.zero,
               ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          padding: EdgeInsets.zero,
-        ),
-      );
-          setState(() {
-            preview = false;
-            clicked = false;
-          });
-        } 
-        else {
-          final response = await supabase
+            );
+            setState(() {
+              preview = false;
+              clicked = false;
+            });
+          } 
+          else {
+            final response = await supabase
               .from('companies')
               .select()
               .eq('company_id', company.id)
               .maybeSingle();
 
-          if (xResponse['late'] as bool) {
-            await supabase.from('messages').insert({
-              'receiver_id': response?['account_id'],
-              'date': formatted,
-              'created_at': timestamp,
-              'image': uploadResponse,
-              'employee_id': pegawaiId,
-              'employee_name': other.namaPegawai,
-              'late': xResponse['late'] as bool,
-              'late_diff': xResponse['late'] as bool
+            if (xResponse['late'] as bool) {
+              await supabase.from('messages').insert({
+                'receiver_id': response?['account_id'],
+                'date': formatted,
+                'created_at': timestamp,
+                'image': uploadResponse,
+                'employee_id': pegawaiId,
+                'employee_name': other.namaPegawai,
+                'late': xResponse['late'] as bool,
+                'late_diff': xResponse['late'] as bool
                   ? xResponse['late_diff']
                   : 0,
-              'action_type': 'melakukan absen pulang',
-              'action_time': formattedSecond,
-              'on_office': isOnOffice(latitude, longitude),
-            });
-          }
+                'action_type': 'melakukan absen pulang',
+                'action_time': formattedSecond,
+                'on_office': isOnOffice(latitude, longitude),
+              });
+            }
 
-          ref.read(globalStateProvider.notifier).signOut(formattedTime);
-
-          Navigator.of(context).pop();
-
-          (() async {
-            showDialog(
-              context: context,
-              barrierDismissible: true,
-              builder: (_) => Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'you have been checked out',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(width: 5),
-                      Icon(Icons.check_circle, color: Colors.green, size: 28),
-                    ],
-                  ),
-                ),
-              ),
-            );
-
-            await Future.delayed(Duration(seconds: 1));
-
-            setState(() {
-              latitude = latitude;
-              longitude = longitude;
-              path = img.path;
-              preview = false;
-            });
+            ref.read(globalStateProvider.notifier).signOut(formattedTime);
 
             Navigator.of(context).pop();
 
-            await Future.delayed(Duration(seconds: 1));
+            (() async {
+              showDialog(
+                context: context,
+                barrierDismissible: true,
+                builder: (_) => Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'you have been checked out',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(width: 5),
+                        Icon(Icons.check_circle, color: Colors.green, size: 28),
+                      ],
+                    ),
+                  ),
+                ),
+              );
 
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/',
-              (Route<dynamic> route) => false,
-            );
-          })();
-        }
-      } 
-      else {
-        print(isOnOffice(latitude, longitude));
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/makeexception',
-          (Route<dynamic> route) => false,
+              await Future.delayed(Duration(seconds: 1));
+
+              setState(() {
+                latitude = latitude;
+                longitude = longitude;
+                path = img.path;
+                preview = false;
+              });
+
+              Navigator.of(context).pop();
+
+              await Future.delayed(Duration(seconds: 1));
+
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/',
+                (Route<dynamic> route) => false,
+              );
+            })();
+          }
+        } 
+        else {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/makeexception',
+            (Route<dynamic> route) => false,
+          );
+        }          
+      }
+      else{
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "face is not detected",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            padding: EdgeInsets.zero,
+          ),
         );
+        setState(() {
+          preview = false;
+          clicked = false;
+        });
       }
     } 
     on TimeoutException catch (err) {
