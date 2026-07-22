@@ -50,10 +50,11 @@ import './pages/calendar.dart';
 import './pages/long_permission.dart';
 import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:absensi/pages/peringatan.dart';
 import '../providers/global_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const int CURRENT_VERSION = 72; // naikkan setiap release
+const int CURRENT_VERSION = 77; // naikkan setiap release
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -185,6 +186,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       '/signout': (_) => SignOutPage(camera: widget.camera),
       '/offline_entry': (_) => const OfflineEntryPage(),
       '/offline_list': (_) => const OfflineListPage(),
+      '/peringatan': (_) => const PeringatanPage(),
       '/permission_handle': (_) => PermissionHandlePage(
         createdAt: "",
         duration: 0,

@@ -46,8 +46,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   double latitude = 0;
   double longitude = 0;
 
-
-
   bool clicked = false;
 
   bool isSuspicious = false;
@@ -186,12 +184,17 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final globalState = ref.read(globalStateProvider);
     final locations = globalState.location.list;
 
-    return locations.any((locs) {
-      final lat2 = double.parse(locs['lat']);
-      final lon2 = double.parse(locs['lon']);
+    return locations.any((loc) {
+      final lat2 = double.parse(loc['lat']);
+      final lon2 = double.parse(loc['lon']);
       final distance = haversineDistance(latitude, lat2, longitude, lon2);
 
-      return distance <= 50;
+      print("=====================");
+      print(distance);
+      print(loc['radius']);
+      print(int.parse(loc['radius']));
+      print("=====================");
+      return distance <= int.parse(loc['radius']);
     });
   }
 
@@ -368,8 +371,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         "is_mock":isSuspicious
       };
 
-      print(params);
-
       if ((ffocia || config.ffocia) || isOnOffice(latitude, longitude)) {
         if(faces.length > 0){
           final xRequest = await http.post(
@@ -381,9 +382,9 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             const Duration(seconds: 30)
           );
 
-          print(xRequest.body);
-
           final xResponse = jsonDecode(xRequest.body);
+
+          print(xResponse);
 
           if (!xResponse['success']) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -491,40 +492,40 @@ class _SignInPageState extends ConsumerState<SignInPage> {
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
+            SnackBar(
+              content: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(16),
                   ),
-                  padding: const EdgeInsets.all(16),
-                  child:Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children:[
-                      Icon(Icons.warning, color: Colors.red, size: 36),
-                      SizedBox(height: 8),
-                      Text(
-                        'Wajah tidak terdeteksi',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Pastikan wajah berada di dalam frame kamera',
-                        textAlign: TextAlign.center,
-                      )
-                    ]
-                  )
                 ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          padding: EdgeInsets.zero,
-        ),
-      );
+                padding: const EdgeInsets.all(16),
+                child:Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children:[
+                    Icon(Icons.warning, color: Colors.red, size: 36),
+                    SizedBox(height: 8),
+                    Text(
+                      'Wajah tidak terdeteksi',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Pastikan wajah berada di dalam frame kamera',
+                      textAlign: TextAlign.center,
+                    )
+                  ]
+                )
+              ),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              padding: EdgeInsets.zero,
+            ),
+          );
         }
       } 
       else {
@@ -542,6 +543,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       }
     } 
     on TimeoutException catch (err) {
+      print(err);
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -592,7 +594,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    "something went wrong",
+                    err.toString().replaceAll('Exception: ', ''),
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
@@ -785,9 +787,92 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 			loading: () => const Scaffold(
         body: Center(child: Text('please wait')),
       ),
-			error: (err, _) => Scaffold(
-        body: Center(child: Text('Location access is denied')),
-      ),
+			error: (err, _) {
+        final errorMsg = err.toString();
+        final isGpsOff = errorMsg.contains('GPS is not enabled') || errorMsg.contains('failed to get current location');
+        final isPermissionDenied = errorMsg.contains('denied');
+
+        return Scaffold(
+          appBar: !preview
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                iconTheme: const IconThemeData(color: Colors.black),
+              )
+            : null,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isGpsOff ? Icons.location_off : Icons.error_outline,
+                    size: 64,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isGpsOff 
+                      ? 'GPS Anda sedang tidak aktif.\nSilakan nyalakan GPS untuk menggunakan fitur ini.'
+                      : (isPermissionDenied 
+                          ? 'Izin Lokasi ditolak.\nIzinkan akses lokasi pada pengaturan aplikasi.' 
+                          : 'Gagal mendapatkan lokasi: ${errorMsg.replaceAll('Exception: ', '')}'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  if (isGpsOff) ...[
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await Geolocator.openLocationSettings();
+                      },
+                      icon: const Icon(Icons.settings),
+                      label: const Text('Buka Pengaturan Lokasi'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (isPermissionDenied) ...[
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await Geolocator.openAppSettings();
+                      },
+                      icon: const Icon(Icons.settings_applications),
+                      label: const Text('Buka Pengaturan Aplikasi'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  ElevatedButton.icon(
+                    onPressed: () => ref.refresh(locationProvider),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Coba Lagi'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (isGpsOff || isPermissionDenied) ? Colors.grey[200] : Colors.teal,
+                      foregroundColor: (isGpsOff || isPermissionDenied) ? Colors.black87 : Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      elevation: (isGpsOff || isPermissionDenied) ? 0 : 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
 			data: (position){
 				WidgetsBinding.instance.addPostFrameCallback((_) {
           if(mounted && (latitude != position['position'].latitude || longitude != position['position'].longitude)){

@@ -42,6 +42,7 @@ typedef Schedule = ({
 });
 
 typedef Location = ({List<Map<String, dynamic>> list});
+typedef Violation = ({List<Map<String, dynamic>> list});
 typedef DEVICEPST = ({double lat, double lon});
 typedef Coordinate = ({double lat, double lon});
 typedef Permission = ({int id});
@@ -57,6 +58,7 @@ typedef Other = ({
   String status,
   String nik,
 });
+
 
 typedef GlobalState = ({
   Auth auth,
@@ -80,6 +82,7 @@ typedef GlobalState = ({
   XPresence presence,
   List<Map<String, dynamic>> offlineEntries,
   ServerTimeInfo serverTimeInfo,
+  Violation violation,
 });
 
 final globalStateProvider =
@@ -128,7 +131,8 @@ final globalStateProvider =
         reminder:(lastLat:0,lastLon:0),
         presence:(ci:"00:00",co:"00:00"),
         offlineEntries: [],
-        serverTimeInfo: (serverTime: null, upTime: null)
+        serverTimeInfo: (serverTime: null, upTime: null),
+        violation: (list: [])
       ));
     });
 
@@ -164,7 +168,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder: (lastLat:lat,lastLon:lon),
       presence: state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -193,7 +198,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:(lastLat:0,lastLon:0),
       presence: state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -221,7 +227,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -270,7 +277,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -296,7 +304,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -322,7 +331,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -348,7 +358,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:(ci:formattedTime,co:state.presence.co),
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -374,7 +385,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:(ci:state.presence.ci,co:formattedTime),
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -410,7 +422,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -449,7 +462,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -480,7 +494,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -508,7 +523,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -536,7 +552,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -564,7 +581,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -592,7 +610,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder:state.reminder,
       presence:state.presence,
       offlineEntries: state.offlineEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -626,7 +645,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder: state.reminder,
       presence: state.presence,
       offlineEntries: newEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -662,7 +682,8 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       reminder: state.reminder,
       presence: state.presence,
       offlineEntries: updatedEntries,
-      serverTimeInfo: state.serverTimeInfo
+      serverTimeInfo: state.serverTimeInfo,
+      violation: state.violation
     );
   }
 
@@ -689,6 +710,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       presence: state.presence,
       offlineEntries: state.offlineEntries,
       serverTimeInfo: (serverTime: serverTime, upTime: upTime),
+      violation: state.violation,
     );
   }
 
@@ -715,6 +737,7 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
     final presenceJson = json['presence'] ?? {};
     final offlineEntriesJson = json['offlineEntries'] as List? ?? [];
     final serverTimeInfoJson = json['serverTimeInfo'] ?? {};
+    final violationList = (json['violation']?['list'] as List?) ?? [];
 
     return (
       auth: (
@@ -801,6 +824,9 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
         serverTime: serverTimeInfoJson['serverTime'] as String?,
         upTime: serverTimeInfoJson['upTime'] as int?,
       ),
+      violation: (
+        list: violationList.map((e) => Map<String, dynamic>.from(e)).toList(),
+      ),
     );
   }
 
@@ -864,6 +890,11 @@ class GlobalStateProvider extends HydratedStateNotifier<GlobalState> {
       'reminder':{'lastLat':state.reminder.lastLat,'lastLon':state.reminder.lastLon},
       'presence':{'ci':state.presence.ci,'co':state.presence.co},
       'offlineEntries': state.offlineEntries,
+      'serverTimeInfo': {
+        'serverTime': state.serverTimeInfo.serverTime,
+        'upTime': state.serverTimeInfo.upTime,
+      },
+      'violation': {'list': state.violation.list},
     };
   }
 }

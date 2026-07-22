@@ -4,6 +4,7 @@ import 'package:location/location.dart' as loc;
 
 final locationProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  
   if (!serviceEnabled) {
     loc.Location location = loc.Location();
     serviceEnabled = await location.requestService();
@@ -28,11 +29,11 @@ final locationProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 
   int retry = 0;
 
-  while (retry < 5) {
+  while (retry < 2) {
     try {
       final pst = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
-        timeLimit: const Duration(seconds: 5),
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 7),
       );
 
       // jangan throw, tapi tandai
@@ -49,7 +50,9 @@ final locationProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     } 
     catch (_) {
       retry++;
-      await Future.delayed(const Duration(seconds: 2));
+      if (retry < 2) {
+        await Future.delayed(const Duration(seconds: 1));
+      }
     }
   }
 

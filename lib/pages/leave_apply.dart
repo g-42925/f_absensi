@@ -190,6 +190,8 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
         );
 
         final streamedResponse = await request.send().timeout(const Duration(seconds: 10));
+        
+        final responseBody = await streamedResponse.stream.bytesToString();
 
         if(streamedResponse.statusCode < 200 ||  streamedResponse.statusCode >= 300){
           ScaffoldMessenger.of(context).showSnackBar(
@@ -221,6 +223,15 @@ class _LeaveApplyPageState extends ConsumerState<LeaveApplyPage> {
           );
         }
         else{
+          final params = { 
+            'company_id': company.id, 
+            'tanggal_request': xTanggalMulai, 
+            'tanggal_request_end': xTanggalSelesai, 
+            'catatan_awal': _reasonController.text, 
+            'pegawai_id': other.pegawaiId, 
+            'image':responseBody, 
+            'tipe_request' : selectedValue == "Sakit" ? "s" : "c" 
+          };
           await http.post(
             url, 
             headers: headers, 

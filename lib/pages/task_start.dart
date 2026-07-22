@@ -327,6 +327,12 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 
       final uploadResponse = responseBody;
 
+      print("======================= uploadResponse =======================");
+
+      print(uploadResponse);
+
+      print("======================= uploadResponse =======================");
+
       final params = {
         "start_photo": uploadResponse,
         "start_location": "$latitude/$longitude",
@@ -346,6 +352,12 @@ class _TaskStartPageState extends ConsumerState<TaskStartPage> {
 
 
       final xResponse = jsonDecode(xRequest.body);
+
+      print("=======================");
+
+      print(xResponse);
+
+      print("=======================");
 
       if (!xResponse['success']) {
         ScaffoldMessenger.of(context).showSnackBar(

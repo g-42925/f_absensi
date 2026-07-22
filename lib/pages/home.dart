@@ -919,11 +919,12 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                             },
                           ),
                           IconLabel(
-                            icon: Icons.lock,
-                            label: 'Soon',
-                            isLocked: true,
+                            icon: Icons.warning,
+                            label: "Peringatan",
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/peringatan');
+                            },
                           ),
-
                           IconLabel(
                             icon: Icons.lock,
                             label: 'Soon',

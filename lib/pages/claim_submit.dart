@@ -1,13 +1,15 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
+import 'package:absensi/env/env.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:absensi/env/env.dart';
 import 'package:absensi/providers/global_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:http_parser/http_parser.dart';
 
 class ClaimSubmitPage extends ConsumerStatefulWidget {
   const ClaimSubmitPage({super.key});
@@ -48,20 +50,52 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
       return;
     }
 
+    if(int.tryParse(valueController.text) == null){
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Harap masukkan jumlah yang valid")),
+      );
+      return;
+    }
+
     final url = Uri.parse("${Env.api}/api/mobile/makeclaim");
     final supabase = Supabase.instance.client;
-
+    final state = ref.read(globalStateProvider);
+    final company = state.company;
     final file = File(_image!.path);
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_image!.name}';
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}';
+    final uploadUrl = Uri.parse("${Env.api}/filebase/unknown/${fileName}/${company.id}");
 
-    await supabase.storage.from('storage').upload(fileName, file);
-    final uploaded = supabase.storage.from('storage').getPublicUrl(fileName);
+    final bytes = await file.readAsBytes();
+    final request = http.MultipartRequest('POST', uploadUrl);
+
+    final compressed = await FlutterImageCompress.compressWithFile(
+      file.path,
+      minHeight: 1920,
+      minWidth: 1080,
+      quality: 80,
+    );
+
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file', // field name
+        compressed!, // file data
+        filename: fileName,
+        contentType: MediaType('image', 'jpeg'),
+      ),
+    );
+
+
+    final streamedResponse = await request.send();
+
+    final responseBody = await streamedResponse.stream.bytesToString();
+
 
     final payload = {
       "value": valueController.text,
       "employee_id": pegawaiId,
       "reimburse_id": selectedValue,
-      "photo": uploaded,
+      "photo": responseBody,
     };
 
     try {
@@ -82,7 +116,8 @@ class _ClaimSubmitPageState extends ConsumerState<ClaimSubmitPage> {
           '/',
           (Route<dynamic> route) => false,
         );
-      } else {
+      } 
+      else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Coba beberapa saat lagi")),
         );
