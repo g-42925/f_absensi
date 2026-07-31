@@ -31,9 +31,21 @@ final locationProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 
   while (retry < 2) {
     try {
+      LocationSettings locationSettings = AndroidSettings(
+        accuracy: LocationAccuracy.high, // Aktifkan Fused Location
+        distanceFilter: 10, // Update posisi jika bergerak minimal 10 meter
+        forceLocationManager: false, // Wajib false agar pakai Fused Provider
+        intervalDuration: const Duration(seconds: 10), // Interval polling lokasi
+        // Fitur khusus Android: Tampilkan notifikasi saat jalan di background
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: "Aplikasi sedang melacak lokasi Anda",
+          notificationTitle: "Layanan Lokasi Aktif",
+          enableWakeLock: true,
+        ),
+      ); 
+
       final pst = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 7),
+        locationSettings: locationSettings,
       );
 
       // jangan throw, tapi tandai

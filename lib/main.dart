@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:absensi/pages/log.dart';
 import 'package:absensi/pages/activity.dart';
 import 'package:absensi/pages/break.dart';
@@ -38,23 +39,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hydrated_riverpod/hydrated_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import './env/env.dart';
-import './pages/home.dart';
-import './pages/login.dart';
-import './pages/signin.dart';
-import './pages/signout.dart';
-import './pages/permission.dart';
-import './pages/permission_handle.dart';
-import './pages/short_permission.dart';
-import './pages/calendar.dart';
-import './pages/long_permission.dart';
-import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:absensi/pages/peringatan.dart';
-import '../providers/global_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:absensi/env/env.dart';
+import 'package:absensi/providers/global_state.dart';
+import 'package:absensi/pages/home.dart';
+import 'package:absensi/pages/login.dart';
+import 'package:absensi/pages/signin.dart';
+import 'package:absensi/pages/signout.dart';
+import 'package:absensi/pages/permission.dart';
+import 'package:absensi/pages/permission_handle.dart';
+import 'package:absensi/pages/short_permission.dart';
+import 'package:absensi/pages/calendar.dart';
+import 'package:absensi/pages/long_permission.dart';
 
-const int CURRENT_VERSION = 77; // naikkan setiap release
+const int CURRENT_VERSION = 80; // naikkan setiap release
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,7 +85,8 @@ void main() async {
 
   try {
     runApp(ProviderScope(child: MyApp(camera: camera)));
-  } catch (e) {
+  } 
+  catch (e) {
     runApp(
       MaterialApp(
         home: Center(

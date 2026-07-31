@@ -127,111 +127,112 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             'lon': l['garis_bujur']?.toString() ?? '',
             'address': l['alamat_lokasi'] ?? '',
             'locationName': l['nama_lokasi'] ?? '',
-            'radius': l['jangkauan_radius']
+            'radius': l['jangkauan_radius'] ?? 0,
+            'mainLocation': l['main_location'] == "1" ? true : false,
           };
         });
 
 
-        // final warningList = responseBody['result']['warningList'] ?? [];
+        final warningList = responseBody['result']['warningList'] ?? [];
 
 
-        // final Iterable<Map<String, dynamic>> violations = (warningList as List).map((v){
-        //   return {
-        //     'id': v['id'] ?? '',
-        //     'employeeId': v['employee_id'] ?? '',
-        //     'sp_number': v['sp_number'] ?? '',
-        //     'level': v['level'] ?? '',
-        //     'title': v['title'] ?? '',
-        //     'violation': v['violation'] ?? '',
-        //     'date': v['date'] ?? '',
-        //     'createdAt': v['createdAt'] ?? '',
-        //     'penalty': v['penalty'] ?? '',
-        //     'issuedBy': v['issuedBy'] ?? '',
-        //   };
-        // });
+        final Iterable<Map<String, dynamic>> violations = (warningList as List).map((v){
+          return {
+            'id': v['id'] ?? '',
+            'employeeId': v['employee_id'] ?? '',
+            'sp_number': v['sp_number'] ?? '',
+            'level': v['level'] ?? '',
+            'title': v['title'] ?? '',
+            'violation': v['violation'] ?? '',
+            'date': v['date'] ?? '',
+            'createdAt': v['createdAt'] ?? '',
+            'penalty': v['penalty'] ?? '',
+            'issuedBy': v['issuedBy'] ?? '',
+          };
+        });
         
 
-        // final Other other = (
-        //   pegawaiId: responseBody['result']['pegawai_id'] ?? '',
-        //   namaPegawai: responseBody['result']['nama_pegawai'] ?? '',
-        //   nomorPegawai: responseBody['result']['nomor_pegawai'] ?? '',
-        //   emailPegawai: responseBody['result']['email_pegawai'] ?? '',
-        //   fotoPegawai: responseBody['result']['foto_pegawai'] ?? '',
-        //   position: responseBody['result']['position'] ?? '',
-        //   status: responseBody['result']['status_pegawai'] ?? '',
-        //   nik: responseBody['result']['nik'] ?? '',
-        // );
+        final Other other = (
+          pegawaiId: responseBody['result']['pegawai_id'] ?? '',
+          namaPegawai: responseBody['result']['nama_pegawai'] ?? '',
+          nomorPegawai: responseBody['result']['nomor_pegawai'] ?? '',
+          emailPegawai: responseBody['result']['email_pegawai'] ?? '',
+          fotoPegawai: responseBody['result']['foto_pegawai'] ?? '',
+          position: responseBody['result']['position'] ?? '',
+          status: responseBody['result']['status_pegawai'] ?? '',
+          nik: responseBody['result']['nik'] ?? '',
+        );
 
-        // final Holiday holiday = (
-        //   holiday: responseBody['result']['holiday'] ?? false,
-        //   workDay: workDay,
-        // );
-
-
-        // final Status status = (signedIn: false, signedOut: false);
-
-        // final Auth auth = (
-        //   loggedIn: true,
-        //   date: DateTime.now().toIso8601String(),
-        // );
-
-        // final OverWork overWork = (onOverWork: false);
-
-        // final ffocia = responseBody['result']['ffocia'] == "1" ? true : false;
-        // final ffocoa = responseBody['result']['ffocoa'] == "1" ? true : false;
-
-        // final coLimit = int.tryParse(responseBody['result']['co_limit']?.toString() ?? '0') ?? 0;
-
-        // final ciLimit = int.tryParse(responseBody['result']['ci_limit']?.toString() ?? '0') ?? 0;
-
-        // final tolerance = int.tryParse(responseBody['result']['tolerance']?.toString() ?? '0') ?? 0;
+        final Holiday holiday = (
+          holiday: responseBody['result']['holiday'] ?? false,
+          workDay: workDay,
+        );
 
 
-        // final Config config = (
-        //   ffocia: ffocia,
-        //   ffocoa: ffocoa,
-        //   coLimit: coLimit,
-        //   ciLimit: ciLimit,
-        //   tolerance: tolerance,
-        // );
+        final Status status = (signedIn: false, signedOut: false);
+
+        final Auth auth = (
+          loggedIn: true,
+          date: DateTime.now().toIso8601String(),
+        );
+
+        final OverWork overWork = (onOverWork: false);
+
+        final ffocia = responseBody['result']['ffocia'] == "1" ? true : false;
+        final ffocoa = responseBody['result']['ffocoa'] == "1" ? true : false;
+
+        final coLimit = int.tryParse(responseBody['result']['co_limit']?.toString() ?? '0') ?? 0;
+
+        final ciLimit = int.tryParse(responseBody['result']['ci_limit']?.toString() ?? '0') ?? 0;
+
+        final tolerance = int.tryParse(responseBody['result']['tolerance']?.toString() ?? '0') ?? 0;
 
 
-        // final XPresence presence = workSystem == "shift" ? (
-        //   ci:responseBody['result']['clock_in'],
-        //   co:responseBody['result']['clock_out'],
-        // ) : (
-        //   ci:responseBody['result']['jam_masuk'],
-        //   co:responseBody['result']['jam_pulang'],
-        // );
+        final Config config = (
+          ffocia: ffocia,
+          ffocoa: ffocoa,
+          coLimit: coLimit,
+          ciLimit: ciLimit,
+          tolerance: tolerance,
+        );
+
+
+        final XPresence presence = workSystem == "shift" ? (
+          ci:responseBody['result']['clock_in'],
+          co:responseBody['result']['clock_out'],
+        ) : (
+          ci:responseBody['result']['jam_masuk'],
+          co:responseBody['result']['jam_pulang'],
+        );
 
 
 
-        // ref.read(globalStateProvider.notifier).login((
-        //   auth: auth,
-        //   status: status,
-        //   company: company,
-        //   schedule: schedule,
-        //   permission: (id: 0),
-        //   location: (list: location.toList()),
-        //   position: (lat: 0.0, lon: 0.0),
-        //   other: other,
-        //   history: <String>[],
-        //   coordinate: (lat: 0.0, lon: 0.0),
-        //   holiday: holiday,
-        //   breakInfo: (onBreak: false, startFrom: ''),
-        //   overWork: overWork,
-        //   config: config,
-        //   task: (started: <String>[], finished: <String>[]),
-        //   exception: (list: <String>[]),
-        //   csh: (allowed: false),
-        //   reminder: (lastLat: 0.0, lastLon: 0.0),
-        //   presence: presence,
-        //   offlineEntries: <Map<String, dynamic>>[],
-        //   serverTimeInfo: (serverTime: null, upTime: null),
-        //   violation: (list:violations.toList()),
-        // ));
+        ref.read(globalStateProvider.notifier).login((
+          auth: auth,
+          status: status,
+          company: company,
+          schedule: schedule,
+          permission: (id: 0),
+          location: (list: location.toList()),
+          position: (lat: 0.0, lon: 0.0),
+          other: other,
+          history: <String>[],
+          coordinate: (lat: 0.0, lon: 0.0),
+          holiday: holiday,
+          breakInfo: (onBreak: false, startFrom: ''),
+          overWork: overWork,
+          config: config,
+          task: (started: <String>[], finished: <String>[]),
+          exception: (list: <String>[]),
+          csh: (allowed: false),
+          reminder: (lastLat: 0.0, lastLon: 0.0),
+          presence: presence,
+          offlineEntries: <Map<String, dynamic>>[],
+          serverTimeInfo: (serverTime: null, upTime: null),
+          violation: (list:violations.toList()),
+        ));
 
-        // Navigator.pushReplacementNamed(context, '/');
+        Navigator.pushReplacementNamed(context, '/');
       } 
       else {
         if (mounted) {

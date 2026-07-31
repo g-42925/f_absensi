@@ -19,6 +19,8 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import '../env/env.dart';
 import '../providers/global_state.dart';
 import '../providers/location_provider.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 
 class SignOutPage extends ConsumerStatefulWidget {
@@ -42,7 +44,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   final controller = TextEditingController();
 
-  String selectedValue = "";
+  Map<dynamic, dynamic>? _selectedLocation;
 
   bool clicked = false;
 
@@ -226,27 +228,17 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
   void captureAndUpload(String? pegawaiId,bool csh) async {
     final currentTime = DateTime.now();
-
-    final uri = Uri.parse(Env.locationIqUrl).replace(
-      queryParameters: {
-        'lat': "$latitude",
-        'lon': "$longitude", 
-        'key': Env.locationIqKey,
-        'format': 'json',
-      },
-    );
-
+    bool isDialogShowing = false;
 
     try {
       final state = ref.read(globalStateProvider);
+      final config = state.config;
       final company = state.company;
       final other = state.other;
 
       final now = DateTime.now(); // ambil tanggal sekarang
 
       final img = await _controller!.takePicture();
-      final requestResponse = await http.get(uri);
-      final response = jsonDecode(requestResponse.body);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/signout");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
@@ -258,10 +250,10 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
       final inputImage = InputImage.fromFilePath(img.path);
 
-      final faces = await faceDetector.processImage(inputImage);
+      final isOther = _selectedLocation != null && _selectedLocation!['id'] == 'other';
 
-
-      loc['address'] = response['display_name'];
+      loc['address'] = isOther ? '$latitude, $longitude' : (_selectedLocation != null ? _selectedLocation!['address'] : 'Tidak diketahui');
+      locationName = isOther ? '$latitude, $longitude' : (_selectedLocation != null ? _selectedLocation!['locationName'] : 'Tidak diketahui');
 
       setState(() {
         path = img.path;
@@ -272,35 +264,38 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
 
       final bytes = result.asUint8List();
 
-      final compressed = await FlutterImageCompress.compressWithList(
-        bytes,
-        minWidth: 1080,
-        minHeight: 1920,
-        quality: 50,
-        format: CompressFormat.jpeg, // penting, karena png lebih besar
-      );
+      final faces = await faceDetector.processImage(inputImage);
 
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (_) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8), // ubah sesuai selera
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
-                Text('submit is loading, please wait...'),
-              ],
+      if(faces.length > 0){
+        final compressed = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: 1080,
+          minHeight: 1920,
+          quality: 50,
+          format: CompressFormat.jpeg, // penting, karena png lebih besar
+        );
+
+        isDialogShowing = true;
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (_) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8), // ubah sesuai selera
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 20),
+                  Text('submit is loading, please wait...'),
+                ],
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      if(faces.length > 0) {
         final request = http.MultipartRequest('POST', uploadUrl);
 
         request.files.add(
@@ -311,7 +306,6 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
             contentType: MediaType('image', 'png'),
           ),
         );
-
 
         final streamedResponse = await request.send();
 
@@ -331,7 +325,317 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
           "is_mock": isSuspicious,
         };
 
-        if(state.config.ffocoa || isOnOffice(latitude, longitude)) {
+        bool isOutOfRadius = true;
+        if (_selectedLocation != null && !isOther) {
+          final lat2 = double.parse(_selectedLocation!['lat'].toString());
+          final lon2 = double.parse(_selectedLocation!['lon'].toString());
+          final radius = int.parse(_selectedLocation!['radius'].toString());
+          final distance = haversineDistance(latitude, lat2, longitude, lon2);
+          isOutOfRadius = distance > radius;
+        }
+
+        if(!config.ffocoa){
+          if(!isOutOfRadius){
+            if(_selectedLocation!['mainLocation']){           
+              final xRequest = await http.post(
+                url,
+                headers: headers,
+                body: jsonEncode(params),
+              )
+              .timeout(
+                const Duration(seconds: 30)
+              );
+
+              final xResponse = jsonDecode(xRequest.body);
+
+              if (!xResponse['success']) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("coba beberapa saat lagi"),
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              ref.read(globalStateProvider.notifier).signOut(formattedTime);
+              ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+              (() async {
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (_) => Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'you have been checked out',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(width: 5),
+                          Icon(Icons.check_circle, color: Colors.green, size: 28),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+
+                await Future.delayed(Duration(seconds: 1));
+
+                setState(() {
+                  path = img.path;
+                  preview = false;
+                });
+
+                Navigator.of(context).pop();
+
+                await Future.delayed(Duration(seconds: 1));
+
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+              })();             
+            }
+            else{
+              final response = await http.get(
+                Uri.parse("${Env.api}/api/mobile/exceptiontoday/${other.pegawaiId}/out"),
+                headers: headers,
+              )
+              .timeout(
+                const Duration(seconds: 30)
+              );
+
+              if(jsonDecode(response.body)['exist'] == "yes"){
+                final xRequest = await http.post(
+                  url,
+                  headers: headers,
+                  body: jsonEncode(params),
+                )
+                .timeout(
+                  const Duration(seconds: 30)
+                );
+
+                final xResponse = jsonDecode(xRequest.body);
+
+                if (!xResponse['success']) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("coba beberapa saat lagi"),
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (Route<dynamic> route) => false,
+                  );
+                  return;
+                }
+
+                Navigator.of(context).pop();
+
+                ref.read(globalStateProvider.notifier).signOut(formattedTime);
+                ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+                (() async {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    builder: (_) => Dialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'you have been checked out',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 5),
+                            Icon(Icons.check_circle, color: Colors.green, size: 28),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+
+                  await Future.delayed(Duration(seconds: 1));
+
+                  setState(() {
+                    path = img.path;
+                    preview = false;
+                  });
+
+                  Navigator.of(context).pop();
+
+                  await Future.delayed(Duration(seconds: 1));
+
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (Route<dynamic> route) => false,
+                  );
+                })();
+              }
+
+              else{
+                if (isDialogShowing) {
+                  Navigator.pop(context);
+                  isDialogShowing = false;
+                }
+                setState(() {
+                  preview = false;
+                  clicked = false;
+                });
+                // show make an exception warning first
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text("Warning"),
+                    content: Text("make an exception first"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("OK"),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            }
+          }
+          else{
+            final response = await http.get(
+              Uri.parse("${Env.api}/api/mobile/exceptiontoday/${other.pegawaiId}/out"),
+              headers: headers,
+            )
+            .timeout(
+              const Duration(seconds: 30)
+            );
+
+            if(jsonDecode(response.body)['exist'] == "yes"){
+              final xRequest = await http.post(
+                url,
+                headers: headers,
+                body: jsonEncode(params),
+              )
+              .timeout(
+                const Duration(seconds: 30)
+              );
+
+              final xResponse = jsonDecode(xRequest.body);
+
+              if (!xResponse['success']) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("coba beberapa saat lagi"),
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              ref.read(globalStateProvider.notifier).signOut(formattedTime);
+              ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+              (() async {
+                showDialog(
+                  context: context,
+                barrierDismissible: true,
+                builder: (_) => Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'you have been checked out',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(width: 5),
+                          Icon(Icons.check_circle, color: Colors.green, size: 28),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+
+                await Future.delayed(Duration(seconds: 1));
+
+                setState(() {
+                  path = img.path;
+                  preview = false;
+                });
+
+                Navigator.of(context).pop();
+
+                await Future.delayed(Duration(seconds: 1));
+
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+              })();
+            }
+
+            else{
+              if (isDialogShowing) {
+                Navigator.pop(context);
+                isDialogShowing = false;
+              }
+              setState(() {
+                preview = false;
+                clicked = false;
+              });
+              // show make an exception warning first
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text("Warning"),
+                  content: Text("make an exception first"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text("OK"),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+        }
+
+        if(config.ffocoa){
           final xRequest = await http.post(
             url,
             headers: headers,
@@ -344,124 +648,72 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
           final xResponse = jsonDecode(xRequest.body);
 
           if (!xResponse['success']) {
-            Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Container(
-                  margin: EdgeInsets.all(16),
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error, color: Colors.white),
-                      SizedBox(width: 10),
-                      Expanded(
-                      child: Text(
-                        "something went wrong",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-                ),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                padding: EdgeInsets.zero,
+                content: Text("coba beberapa saat lagi"),
+                duration: Duration(seconds: 4),
               ),
             );
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/',
+              (Route<dynamic> route) => false,
+            );
+            return;
+          }
+
+          Navigator.of(context).pop();
+
+          ref.read(globalStateProvider.notifier).signOut(formattedTime);
+          ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+          (() async {
+            showDialog(
+              context: context,
+              barrierDismissible: true,
+              builder: (_) => Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'you have been checked out',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(width: 5),
+                      Icon(Icons.check_circle, color: Colors.green, size: 28),
+                    ],
+                  ),
+                ),
+              ),
+            );
+
+            await Future.delayed(Duration(seconds: 1));
+
             setState(() {
+              path = img.path;
               preview = false;
-              clicked = false;
             });
-          } 
-          else {
-            final response = await supabase
-              .from('companies')
-              .select()
-              .eq('company_id', company.id)
-              .maybeSingle();
-
-            if (xResponse['late'] as bool) {
-              await supabase.from('messages').insert({
-                'receiver_id': response?['account_id'],
-                'date': formatted,
-                'created_at': timestamp,
-                'image': uploadResponse,
-                'employee_id': pegawaiId,
-                'employee_name': other.namaPegawai,
-                'late': xResponse['late'] as bool,
-                'late_diff': xResponse['late'] as bool
-                  ? xResponse['late_diff']
-                  : 0,
-                'action_type': 'melakukan absen pulang',
-                'action_time': formattedSecond,
-                'on_office': isOnOffice(latitude, longitude),
-              });
-            }
-
-            ref.read(globalStateProvider.notifier).signOut(formattedTime);
 
             Navigator.of(context).pop();
 
-            (() async {
-              showDialog(
-                context: context,
-                barrierDismissible: true,
-                builder: (_) => Dialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'you have been checked out',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(width: 5),
-                        Icon(Icons.check_circle, color: Colors.green, size: 28),
-                      ],
-                    ),
-                  ),
-                ),
-              );
+            await Future.delayed(Duration(seconds: 1));
 
-              await Future.delayed(Duration(seconds: 1));
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/',
+              (Route<dynamic> route) => false,
+            );
+          })();            
+        }
 
-              setState(() {
-                latitude = latitude;
-                longitude = longitude;
-                path = img.path;
-                preview = false;
-              });
 
-              Navigator.of(context).pop();
-
-              await Future.delayed(Duration(seconds: 1));
-
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/',
-                (Route<dynamic> route) => false,
-              );
-            })();
-          }
-        } 
-        else {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/makeexception',
-            (Route<dynamic> route) => false,
-          );
-        }          
       }
       else{
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Container(
@@ -477,7 +729,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "face is not detected",
+                      "Wajah tidak terdeteksi",
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
@@ -487,16 +739,13 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             padding: EdgeInsets.zero,
+            duration: const Duration(seconds: 5),
           ),
         );
-        setState(() {
-          preview = false;
-          clicked = false;
-        });
       }
     } 
     on TimeoutException catch (err) {
-      Navigator.pop(context);
+      if (isDialogShowing) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Container(
@@ -530,7 +779,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
       });
     }
     catch (err) {
-      Navigator.pop(context);
+      if (isDialogShowing) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Container(
@@ -566,6 +815,17 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
   }
 
   Widget setPreview() {
+    final isOther = _selectedLocation != null && _selectedLocation!['id'] == 'other';
+
+    final _lat2 = (_selectedLocation != null && !isOther && _selectedLocation!['lat'] != null) 
+        ? double.parse(_selectedLocation!['lat'].toString()) 
+        : latitude;
+        
+    final _lon2 = (_selectedLocation != null && !isOther && _selectedLocation!['lon'] != null) 
+        ? double.parse(_selectedLocation!['lon'].toString()) 
+        : longitude;
+    final _d =  haversineDistance(latitude, _lat2, longitude, _lon2);
+    
     return RepaintBoundary(
       key: _globalKey,
       child: Stack(
@@ -581,21 +841,38 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
               padding: EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Image.network(
-                    Uri.parse(Env.locationIqStaticMap)
-                        .replace(
-                          queryParameters: {
-                            'center': "$latitude,$longitude",
-                            'size': '100x200',
-                            'zoom': '18',
-                            'key': Env.locationIqKey,
-                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
-                            'format': 'jpg',
-                            'maptype':'streets'
-                          },
-                        )
-                        .toString(),
-                    fit: BoxFit.cover,
+                  SizedBox(
+                    width: 100,
+                    height: 200,
+                    child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: LatLng(latitude, longitude),
+                      initialZoom: 18,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                        userAgentPackageName: 'com.leryn.f_absensi',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(latitude, longitude),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   ),
                   SizedBox(width: 10),
                   Expanded(
@@ -610,7 +887,7 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['address']}",
+                              "${loc['address']} (${_d})",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
@@ -666,6 +943,24 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
     final other = globalState.other;
     final workSystemName = globalState.schedule.workSystemName;
     final _workSystemName = workSystemName != "" ? workSystemName : "Day";
+    final locations = globalState.location.list;
+
+    final List<dynamic> dropdownItems = List.from(locations);
+    dropdownItems.add(const {'id': 'other', 'locationName': 'Lainnya'});
+
+    final currentLoc = _selectedLocation ?? (dropdownItems.isNotEmpty ? dropdownItems.first : null);
+    final isOther = currentLoc != null && currentLoc['id'] == 'other';
+
+    bool isOutOfRadius = true;
+    if (currentLoc != null && !isOther) {
+      final lat2 = double.parse(currentLoc['lat'].toString());
+      final lon2 = double.parse(currentLoc['lon'].toString());
+      final radius = int.parse(currentLoc['radius'].toString());
+      final distance = haversineDistance(latitude, lat2, longitude, lon2);
+      isOutOfRadius = distance > radius;
+    }
+
+    bool disableButton = !isOther && isOutOfRadius;
 
     return Stack(
       children: [
@@ -707,7 +1002,157 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                         color: Colors.red,
                     ),
                     SizedBox(width: 8),
-                    Text(setLocation(latitude,longitude!)),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          String searchQuery = '';
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            ),
+                            builder: (context) {
+                              return StatefulBuilder(
+                                builder: (BuildContext context, StateSetter setModalState) {
+                                  final filteredItems = dropdownItems.where((loc) {
+                                    if (loc['id'] == 'other') return true;
+                                    final locName = loc['locationName'].toString().toLowerCase();
+                                    return locName.contains(searchQuery.toLowerCase());
+                                  }).toList();
+
+                                  return SafeArea(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                                        top: 16,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            "Pilih Lokasi",
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                            child: TextField(
+                                              decoration: InputDecoration(
+                                                hintText: 'Cari lokasi...',
+                                                prefixIcon: const Icon(Icons.search),
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                                              ),
+                                              onChanged: (value) {
+                                                setModalState(() {
+                                                  searchQuery = value;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          const Divider(),
+                                          Flexible(
+                                            child: ListView(
+                                              shrinkWrap: true,
+                                              children: filteredItems.map<Widget>((loc) {
+                                                if (loc['id'] == 'other') {
+                                                  return ListTile(
+                                                    leading: const Icon(Icons.location_off, color: Colors.grey),
+                                                    title: const Text("Lainnya"),
+                                                    onTap: () {
+                                                      setState(() {
+                                                        _selectedLocation = loc;
+                                                      });
+                                                      Navigator.pop(context);
+                                                    },
+                                                  );
+                                                }
+                                                final lat2 = double.parse(loc['lat'].toString());
+                                                final lon2 = double.parse(loc['lon'].toString());
+                                                final radius = int.parse(loc['radius'].toString());
+                                                final distance = haversineDistance(latitude, lat2, longitude, lon2).toInt();
+                                                final isOutOfRadius = distance > radius;
+                                                
+                                                return ListTile(
+                                                  leading: Icon(
+                                                    Icons.location_on, 
+                                                    color: isOutOfRadius ? Colors.red : Colors.green
+                                                  ),
+                                                  title: Text(loc['locationName']),
+                                                  subtitle: Text("Jarak: ${distance}m / Radius: ${radius}m"),
+                                                  trailing: isOutOfRadius 
+                                                    ? const Icon(Icons.cancel, color: Colors.red, size: 20)
+                                                    : const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _selectedLocation = loc;
+                                                    });
+                                                    Navigator.pop(context);
+                                                  },
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Builder(
+                                  builder: (context) {
+                                    if (currentLoc == null) {
+                                      return const Text("Pilih Lokasi", style: TextStyle(fontWeight: FontWeight.bold));
+                                    }
+                                    if (currentLoc['id'] == 'other') {
+                                      return const Text("Lainnya", style: TextStyle(fontWeight: FontWeight.bold));
+                                    }
+                                    final lat2 = double.parse(currentLoc['lat'].toString());
+                                    final lon2 = double.parse(currentLoc['lon'].toString());
+                                    final radius = int.parse(currentLoc['radius'].toString());
+                                    final distance = haversineDistance(latitude, lat2, longitude, lon2).toInt();
+                                    final isOutOfRadius = distance > radius;
+                                    
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          currentLoc['locationName'],
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          "${distance}m / ${radius}m",
+                                          style: TextStyle(
+                                            color: isOutOfRadius ? Colors.red : Colors.green,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -726,9 +1171,10 @@ class _SignOutPageState extends ConsumerState<SignOutPage> {
                 backgroundColor: clicked ? Colors.red : Colors.green[600],
                 padding: EdgeInsets.symmetric(vertical: 16),
               ),
-              onPressed: () {
+              onPressed: disableButton ? null : () {
                 setState(() {
                     clicked = true;
+                    _selectedLocation = currentLoc;
                 });
                 captureAndUpload(
                   other.pegawaiId,

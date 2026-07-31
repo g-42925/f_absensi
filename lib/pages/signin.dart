@@ -19,6 +19,8 @@ import '../env/env.dart';
 import '../providers/global_state.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import '../providers/location_provider.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
   final CameraDescription camera;
@@ -36,13 +38,16 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   SupabaseClient supabase = Supabase.instance.client;
   bool preview = false;
 
+  bool face = false;
+
+  final distance = 0;
+
   final faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       performanceMode: FaceDetectorMode.fast,
     ),
   );
 
-	
   double latitude = 0;
   double longitude = 0;
 
@@ -54,7 +59,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   String locationName = 'Anda berada di luar area presensi';
 
-  String selectedValue = "";
+  Map<dynamic, dynamic>? _selectedLocation;
 
   Map<String, String> loc = {'address': ''};
 
@@ -173,7 +178,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 
   Future<ByteBuffer> captureScreen() async {
-    await Future.delayed(Duration(milliseconds: 1000));
+    await Future.delayed(Duration(milliseconds: 3000));
     final boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ImageByteFormat.png);
@@ -188,12 +193,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       final lat2 = double.parse(loc['lat']);
       final lon2 = double.parse(loc['lon']);
       final distance = haversineDistance(latitude, lat2, longitude, lon2);
-
-      print("=====================");
-      print(distance);
-      print(loc['radius']);
-      print(int.parse(loc['radius']));
-      print("=====================");
       return distance <= int.parse(loc['radius']);
     });
   }
@@ -262,6 +261,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 
   void captureAndUpload(String? pegawaiId,bool ffocia) async {
+    bool isDialogShowing = false;
     final globalState = ref.read(globalStateProvider);
     final config = globalState.config;
 
@@ -269,26 +269,15 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final supabase = Supabase.instance.client;
     final currentTime = DateTime.now();
 
-    final uri = Uri.parse(Env.locationIqUrl).replace(
-      queryParameters: {
-        'lat': "$latitude",
-        'lon': "$longitude", 
-        'key': Env.locationIqKey,
-        'format': 'json',
-      },
-    );
-
-
     try {
       final state = ref.read(globalStateProvider);
       final other = state.other;
       final company = state.company;
       final img = await _controller!.takePicture();
-      final requestResponse = await http.get(uri);
-      final response = jsonDecode(requestResponse.body);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/signin");
       final uploadUrl = Uri.parse("${Env.api}/filebase/attendance/$fileName/${company.id}");
+      final exceptionCheckUrl = Uri.parse("${Env.api}/api/mobile/exceptiontoday/${other.pegawaiId}");
 
       final formattedTime = DateFormat("HH:mm").format(currentTime);
       final headers = {"Content-type": "application/json"};
@@ -299,7 +288,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
       final inputImage = InputImage.fromFilePath(img.path);
 
-      loc['address'] = response['display_name'];
+      final isOther = _selectedLocation != null && _selectedLocation!['id'] == 'other';
+  
+      loc['address'] = isOther ? '' : (_selectedLocation != null ? _selectedLocation!['address'] : 'Tidak diketahui');
+      locationName = isOther ? '' : (_selectedLocation != null ? _selectedLocation!['locationName'] : 'Tidak diketahui');
 
       setState(() {
         path = img.path;
@@ -312,67 +304,380 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
       final faces = await faceDetector.processImage(inputImage);
 
-      final compressed = await FlutterImageCompress.compressWithList(
-        bytes,
-        minWidth: 1080,
-        minHeight: 1920,
-        quality: 50,
-        format: CompressFormat.jpeg, // penting, karena png lebih besar
-      );
+      if(faces.length > 0){
+        final compressed = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: 1080,
+          minHeight: 1920,
+          quality: 50,
+          format: CompressFormat.jpeg, // penting, karena png lebih besar
+        );
 
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (_) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8), // ubah sesuai selera
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
-                Text('submit is loading, please wait...'),
-              ],
+        isDialogShowing = true;
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (_) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8), // ubah sesuai selera
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 20),
+                  Text('submit is loading, please wait...'),
+                ],
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final request = http.MultipartRequest('POST', uploadUrl);
+        final request = http.MultipartRequest('POST', uploadUrl);
 
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file', // field name
-          compressed, // file data
-          filename: fileName,
-          contentType: MediaType('image', 'jpeg'),
-        ),
-      );
+        request.files.add(
+            http.MultipartFile.fromBytes(
+            'file', // field name
+            compressed, // file data
+            filename: fileName,
+            contentType: MediaType('image', 'jpeg'),
+          ),
+        );
 
-      final streamedResponse = await request.send();
+        final streamedResponse = await request.send();
 
-      if (streamedResponse.statusCode != 200) {}
+        if (streamedResponse.statusCode != 200) {}
 
-      final responseBody = await streamedResponse.stream.bytesToString();
+        final responseBody = await streamedResponse.stream.bytesToString();
 
-      final uploadResponse = responseBody;
+        final uploadResponse = responseBody;
 
-      final params = {
-        "is_status": "hhk",
-        "jam_masuk": formattedTime,
-        "foto_absen_masuk": uploadResponse,
-        "point_latitude": latitude,
-        "point_longitude": longitude,
-        "latitude_masuk": latitude,
-        "longitude_masuk": longitude,
-        "pegawai_id": pegawaiId,
-        "is_mock":isSuspicious
-      };
+        final params = {
+          "is_status": "hhk",
+          "jam_masuk": formattedTime,
+          "foto_absen_masuk": uploadResponse,
+          "point_latitude": latitude,
+          "point_longitude": longitude,
+          "latitude_masuk": latitude,
+          "longitude_masuk": longitude,
+          "pegawai_id": pegawaiId,
+          "is_mock":isSuspicious
+        };
 
-      if ((ffocia || config.ffocia) || isOnOffice(latitude, longitude)) {
-        if(faces.length > 0){
+        bool isOutOfRadius = true;
+
+        if (_selectedLocation != null && !isOther) {
+          final lat2 = double.parse(_selectedLocation!['lat'].toString());
+          final lon2 = double.parse(_selectedLocation!['lon'].toString());
+          final radius = int.parse(_selectedLocation!['radius'].toString());
+          final distance = haversineDistance(latitude, lat2, longitude, lon2);
+          isOutOfRadius = distance > radius;
+        }
+
+
+        if(!config.ffocia){
+          if(!isOutOfRadius){
+            if(_selectedLocation!['mainLocation']){           
+              final xRequest = await http.post(
+                url,
+                headers: headers,
+                body: jsonEncode(params),
+              )
+              .timeout(
+                const Duration(seconds: 30)
+              );
+
+              final xResponse = jsonDecode(xRequest.body);
+
+              if (!xResponse['success']) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("coba beberapa saat lagi"),
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              ref.read(globalStateProvider.notifier).signIn(formattedTime);
+              ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+              (() async {
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (_) => Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'you have been checked in',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(width: 5),
+                          Icon(Icons.check_circle, color: Colors.green, size: 28),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+
+                await Future.delayed(Duration(seconds: 1));
+
+                setState(() {
+                  path = img.path;
+                  preview = false;
+                });
+
+                Navigator.of(context).pop();
+
+                await Future.delayed(Duration(seconds: 1));
+
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+              })();             
+            }
+            else{
+              final response = await http.get(
+                Uri.parse("${Env.api}/api/mobile/exceptiontoday/${other.pegawaiId}/in"),
+                headers: headers,
+              )
+              .timeout(
+                const Duration(seconds: 30)
+              );
+
+              if(jsonDecode(response.body)['exist'] == "yes"){
+                final xRequest = await http.post(
+                  url,
+                  headers: headers,
+                  body: jsonEncode(params),
+                )
+                .timeout(
+                  const Duration(seconds: 30)
+                );
+
+                final xResponse = jsonDecode(xRequest.body);
+
+                if (!xResponse['success']) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("coba beberapa saat lagi"),
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (Route<dynamic> route) => false,
+                  );
+                  return;
+                }
+
+                Navigator.of(context).pop();
+
+                ref.read(globalStateProvider.notifier).signIn(formattedTime);
+                ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+                (() async {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    builder: (_) => Dialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'you have been checked in',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 5),
+                            Icon(Icons.check_circle, color: Colors.green, size: 28),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+
+                  await Future.delayed(Duration(seconds: 1));
+
+                  setState(() {
+                    path = img.path;
+                    preview = false;
+                  });
+
+                  Navigator.of(context).pop();
+
+                  await Future.delayed(Duration(seconds: 1));
+
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (Route<dynamic> route) => false,
+                  );
+                })();
+              }
+
+              else{
+                if (isDialogShowing) {
+                  Navigator.pop(context);
+                  isDialogShowing = false;
+                }
+                setState(() {
+                  preview = false;
+                  clicked = false;
+                });
+                // show make an exception warning first
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text("Warning"),
+                    content: Text("make an exception first"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("OK"),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            }
+          }
+          else{
+            final response = await http.get(
+              Uri.parse("${Env.api}/api/mobile/exceptiontoday/${other.pegawaiId}/in"),
+              headers: headers,
+            )
+            .timeout(
+              const Duration(seconds: 30)
+            );
+
+            if(jsonDecode(response.body)['exist'] == "yes"){
+              final xRequest = await http.post(
+                url,
+                headers: headers,
+                body: jsonEncode(params),
+              )
+              .timeout(
+                const Duration(seconds: 30)
+              );
+
+              final xResponse = jsonDecode(xRequest.body);
+
+              if (!xResponse['success']) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("coba beberapa saat lagi"),
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              ref.read(globalStateProvider.notifier).signIn(formattedTime);
+              ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+              (() async {
+                showDialog(
+                  context: context,
+                barrierDismissible: true,
+                builder: (_) => Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'you have been checked in',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(width: 5),
+                          Icon(Icons.check_circle, color: Colors.green, size: 28),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+
+                await Future.delayed(Duration(seconds: 1));
+
+                setState(() {
+                  path = img.path;
+                  preview = false;
+                });
+
+                Navigator.of(context).pop();
+
+                await Future.delayed(Duration(seconds: 1));
+
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (Route<dynamic> route) => false,
+                );
+              })();
+            }
+
+            else{
+              if (isDialogShowing) {
+                Navigator.pop(context);
+                isDialogShowing = false;
+              }
+              setState(() {
+                preview = false;
+                clicked = false;
+              });
+              // show make an exception warning first
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text("Warning"),
+                  content: Text("make an exception first"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text("OK"),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+        }
+
+        if(config.ffocia){
           final xRequest = await http.post(
             url,
             headers: headers,
@@ -383,8 +688,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
           );
 
           final xResponse = jsonDecode(xRequest.body);
-
-          print(xResponse);
 
           if (!xResponse['success']) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -398,153 +701,93 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               '/',
               (Route<dynamic> route) => false,
             );
-          } 
+            return;
+          }
 
-          else{
-            final response = await supabase
-              .from('companies')
-              .select()
-              .eq('company_id', company.id)
-              .maybeSingle();
+          Navigator.of(context).pop();
 
-            if (xResponse['late'] as bool) {
-              try {
-                await supabase.from('messages').insert({
-                  'receiver_id': response?['account_id'],
-                  'date': formatted,
-                  'created_at': timestamp,
-                  'image': uploadResponse,
-                  'employee_id': pegawaiId,
-                  'employee_name': other.namaPegawai,
-                  'late': xResponse['late'] as bool,
-                  'late_diff': xResponse['late'] as bool
-                    ? xResponse['late_diff']
-                    : 0,
-                  'action_type': 'melakukan absen masuk',
-                  'action_time': formattedSecond,
-                  'on_office': isOnOffice(latitude, longitude),
-                });
-              } 
-              catch (e) {
-                print(e);
-              }
-            }
+          ref.read(globalStateProvider.notifier).signIn(formattedTime);
+          ref.read(globalStateProvider.notifier).setPosition(latitude, longitude);
+
+          (() async {
+            showDialog(
+              context: context,
+              barrierDismissible: true,
+              builder: (_) => Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'you have been checked in',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(width: 5),
+                      Icon(Icons.check_circle, color: Colors.green, size: 28),
+                    ],
+                  ),
+                ),
+              ),
+            );
+
+            await Future.delayed(Duration(seconds: 1));
+
+            setState(() {
+              path = img.path;
+              preview = false;
+            });
 
             Navigator.of(context).pop();
 
-            ref.read(globalStateProvider.notifier).signIn(formattedTime);
-            ref
-              .read(globalStateProvider.notifier)
-              .setPosition(latitude, longitude);
+            await Future.delayed(Duration(seconds: 1));
 
-            (() async {
-              showDialog(
-                context: context,
-                barrierDismissible: true,
-                builder: (_) => Dialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'you have been checked in',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(width: 5),
-                        Icon(Icons.check_circle, color: Colors.green, size: 28),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-
-              await Future.delayed(Duration(seconds: 1));
-
-              setState(() {
-                latitude = latitude;
-                longitude = longitude;
-                path = img.path;
-                preview = false;
-              });
-
-              Navigator.of(context).pop();
-
-              await Future.delayed(Duration(seconds: 1));
-
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/',
-                (Route<dynamic> route) => false,
-              );
-            })();
-          }
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/',
+              (Route<dynamic> route) => false,
+            );
+          })();            
         }
-        else{
-          Navigator.of(context).pop();
 
-          setState(() {
-            preview = false;
-            clicked = false;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
-                ),
-                padding: const EdgeInsets.all(16),
-                child:Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children:[
-                    Icon(Icons.warning, color: Colors.red, size: 36),
-                    SizedBox(height: 8),
-                    Text(
-                      'Wajah tidak terdeteksi',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Pastikan wajah berada di dalam frame kamera',
-                      textAlign: TextAlign.center,
-                    )
-                  ]
-                )
-              ),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              padding: EdgeInsets.zero,
-            ),
-          );
-        }
-      } 
-      else {
+      }
+      else{
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Silahkan ajuan pengecualian"),
-            duration: Duration(seconds: 4),
+            content: Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Wajah tidak terdeteksi",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            padding: EdgeInsets.zero,
+            duration: const Duration(seconds: 5),
           ),
-        );
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/makeexception',
-          (Route<dynamic> route) => false,
         );
       }
     } 
     on TimeoutException catch (err) {
       print(err);
-      Navigator.pop(context);
+      if (isDialogShowing) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Container(
@@ -578,7 +821,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       });
     }
     catch (err) {
-      Navigator.pop(context);
+      if (isDialogShowing) Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Container(
@@ -614,6 +857,17 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 
   Widget setPreview() {
+    final isOther = _selectedLocation != null && _selectedLocation!['id'] == 'other';
+
+    final _lat2 = (_selectedLocation != null && !isOther && _selectedLocation!['lat'] != null) 
+        ? double.parse(_selectedLocation!['lat'].toString()) 
+        : latitude;
+        
+    final _lon2 = (_selectedLocation != null && !isOther && _selectedLocation!['lon'] != null) 
+        ? double.parse(_selectedLocation!['lon'].toString()) 
+        : longitude;
+    final _d =  haversineDistance(latitude, _lat2, longitude, _lon2);
+
     return RepaintBoundary(
       key: _globalKey,
       child: Stack(
@@ -629,21 +883,38 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               padding: EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Image.network(
-                    Uri.parse(Env.locationIqStaticMap)
-                        .replace(
-                          queryParameters: {
-                            'center': "$latitude,$longitude",
-                            'size': '100x200',
-                            'zoom': '18',
-                            'key': Env.locationIqKey,
-                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
-                            'format': 'jpg',
-                            'maptype':'streets'
-                          },
-                        )
-                        .toString(),
-                    fit: BoxFit.cover,
+                  SizedBox(
+                    width: 100,
+                    height: 200,
+                    child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: LatLng(latitude, longitude),
+                      initialZoom: 18,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                        userAgentPackageName: 'com.leryn.f_absensi',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(latitude, longitude),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   ),
                   SizedBox(width: 10),
                   Expanded(
@@ -658,7 +929,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['address']}",
+                              "${loc['address']} (${_d})",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
@@ -695,6 +966,23 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final schedule = globalState.schedule;
     final other = globalState.other;
     final workSystemName = schedule.workSystemName;
+    final locations = globalState.location.list;
+    final List<dynamic> dropdownItems = List.from(locations);
+    dropdownItems.add(const {'id': 'other', 'locationName': 'Lainnya'});
+
+    final currentLoc = _selectedLocation ?? (dropdownItems.isNotEmpty ? dropdownItems.first : null);
+    final isOther = currentLoc != null && currentLoc['id'] == 'other';
+
+    bool isOutOfRadius = true;
+    if (currentLoc != null && !isOther) {
+      final lat2 = double.parse(currentLoc['lat'].toString());
+      final lon2 = double.parse(currentLoc['lon'].toString());
+      final radius = int.parse(currentLoc['radius'].toString());
+      final distance = haversineDistance(latitude, lat2, longitude, lon2);
+      isOutOfRadius = distance > radius;
+    }
+
+    bool disableButton = !isOther && isOutOfRadius;
 
 		return Stack(
 			children: [
@@ -736,7 +1024,157 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 											color: Colors.red,
 										),
 										SizedBox(width: 8),
-										Text(setLocation(latitude, longitude)),
+										Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          String searchQuery = '';
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            ),
+                            builder: (context) {
+                              return StatefulBuilder(
+                                builder: (BuildContext context, StateSetter setModalState) {
+                                  final filteredItems = dropdownItems.where((loc) {
+                                    if (loc['id'] == 'other') return true;
+                                    final locName = loc['locationName'].toString().toLowerCase();
+                                    return locName.contains(searchQuery.toLowerCase());
+                                  }).toList();
+
+                                  return SafeArea(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                                        top: 16,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            "Pilih Lokasi",
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                            child: TextField(
+                                              decoration: InputDecoration(
+                                                hintText: 'Cari lokasi...',
+                                                prefixIcon: const Icon(Icons.search),
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                                              ),
+                                              onChanged: (value) {
+                                                setModalState(() {
+                                                  searchQuery = value;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          const Divider(),
+                                          Flexible(
+                                            child: ListView(
+                                              shrinkWrap: true,
+                                              children: filteredItems.map<Widget>((loc) {
+                                            if (loc['id'] == 'other') {
+                                              return ListTile(
+                                                leading: const Icon(Icons.location_off, color: Colors.grey),
+                                                title: const Text("Lainnya"),
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedLocation = loc;
+                                                  });
+                                                  Navigator.pop(context);
+                                                },
+                                              );
+                                            }
+                                            final lat2 = double.parse(loc['lat'].toString());
+                                            final lon2 = double.parse(loc['lon'].toString());
+                                            final radius = int.parse(loc['radius'].toString());
+                                            final distance = haversineDistance(latitude, lat2, longitude, lon2).toInt();
+                                            final isOutOfRadius = distance > radius;
+                                            
+                                            return ListTile(
+                                              leading: Icon(
+                                                Icons.location_on, 
+                                                color: isOutOfRadius ? Colors.red : Colors.green
+                                              ),
+                                              title: Text(loc['locationName']),
+                                              subtitle: Text("Jarak: ${distance}m / Radius: ${radius}m"),
+                                              trailing: isOutOfRadius 
+                                                ? const Icon(Icons.cancel, color: Colors.red, size: 20)
+                                                : const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedLocation = loc;
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                                },
+                              );
+                            },
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Builder(
+                                  builder: (context) {
+                                    if (currentLoc == null) {
+                                      return const Text("Pilih Lokasi", style: TextStyle(fontWeight: FontWeight.bold));
+                                    }
+                                    if (currentLoc['id'] == 'other') {
+                                      return const Text("Lainnya", style: TextStyle(fontWeight: FontWeight.bold));
+                                    }
+                                    final lat2 = double.parse(currentLoc['lat'].toString());
+                                    final lon2 = double.parse(currentLoc['lon'].toString());
+                                    final radius = int.parse(currentLoc['radius'].toString());
+                                    final distance = haversineDistance(latitude, lat2, longitude, lon2).toInt();
+                                    final isOutOfRadius = distance > radius;
+                                    
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          currentLoc['locationName'],
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          "${distance}m / ${radius}m",
+                                          style: TextStyle(
+                                            color: isOutOfRadius ? Colors.red : Colors.green,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
 									],
 								),
 							],
@@ -755,9 +1193,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 								backgroundColor: clicked ? Colors.red : Colors.green[600], // hijau gelap
 								padding: EdgeInsets.symmetric(vertical: 16), // tinggi button
 							),
-							onPressed: () {
+							onPressed: disableButton ? null : () {
 								setState(() {
 										clicked = true;
+                    _selectedLocation = currentLoc;
 								});
 								captureAndUpload(
 									other.pegawaiId,

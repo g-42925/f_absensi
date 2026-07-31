@@ -18,6 +18,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/location_provider.dart';
 import '../env/env.dart';
 import '../providers/global_state.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class TaskEndPage extends ConsumerStatefulWidget {
   
@@ -44,7 +46,7 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
   double longitude = 0;
   String locationName = 'Anda berada di luar area presensi';
 
-  String selectedValue = "";
+  Map<dynamic, dynamic>? _selectedLocation;
 
   Map<String, String> loc = {'address': ''};
 
@@ -239,23 +241,11 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
     final supabase = Supabase.instance.client;
     final currentTime = DateTime.now();
 
-    final uri = Uri.parse(Env.locationIqUrl).replace(
-      queryParameters: {
-        'lat': "$latitude",
-        'lon': "$longitude", 
-        'key': Env.locationIqKey,
-        'format': 'json',
-      },
-    );
-
-
     try {
       final state = ref.read(globalStateProvider);
       final other = state.other;
       final company = state.company;
       final img = await _controller!.takePicture();
-      final requestResponse = await http.get(uri);
-      final response = jsonDecode(requestResponse.body);
       final fileName = '${DateTime.now().millisecondsSinceEpoch}';
       final url = Uri.parse("${Env.api}/api/mobile/taskfinish");
       final formattedTime = DateFormat("HH:mm").format(currentTime);
@@ -266,7 +256,8 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
       final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
       final uploadUrl = Uri.parse("${Env.api}/filebase/task/$fileName/${company.id}");
 
-      loc['address'] = response['display_name'];
+      loc['address'] = _selectedLocation != null ? _selectedLocation!['address'] : 'Tidak diketahui';
+      locationName = _selectedLocation != null ? _selectedLocation!['locationName'] : 'Tidak diketahui';
 
       setState(() {
         path = img.path;
@@ -436,6 +427,14 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
   }
 
   Widget setPreview(dynamic id) {
+    final globalState = ref.read(globalStateProvider);
+    final locations = globalState.location.list;
+    final currentLoc = _selectedLocation ?? (locations.isNotEmpty ? locations.first : null);
+
+    final _lat2 = double.parse(_selectedLocation!['lat'].toString());
+    final _lon2 = double.parse(_selectedLocation!['lon'].toString());
+    final _d =  haversineDistance(latitude, _lat2, longitude, _lon2);
+
     return RepaintBoundary(
       key: _globalKey,
       child: Stack(
@@ -451,21 +450,37 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
               padding: EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Image.network(
-                    Uri.parse(Env.locationIqStaticMap)
-                        .replace(
-                          queryParameters: {
-                            'center': "$latitude,$longitude",
-                            'size': '100x200',
-                            'zoom': '18',
-                            'key': Env.locationIqKey,
-                            'markers': 'icon:large-red-cutout|$latitude,$longitude',
-                            'format': 'jpg',
-                            'maptype':'streets'
-                          },
-                        )
-                        .toString(),
-                    fit: BoxFit.cover,
+                  SizedBox(
+                    width: 100,
+                    height: 200,
+                    child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: LatLng(latitude, longitude),
+                      initialZoom: 18,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(latitude, longitude),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   ),
                   SizedBox(width: 10),
                   Expanded(
@@ -480,7 +495,7 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${loc['address']}",
+                              "${loc['address']} (${_d})",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
@@ -517,6 +532,18 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
     final other = globalState.other;
     final schedule = globalState.schedule;
     final workSystemName = schedule.workSystemName;
+    final locations = globalState.location.list;
+
+    final currentLoc = _selectedLocation ?? (locations.isNotEmpty ? locations.first : null);
+
+    bool isOutOfRadius = true;
+    if (currentLoc != null) {
+      final lat2 = double.parse(currentLoc['lat'].toString());
+      final lon2 = double.parse(currentLoc['lon'].toString());
+      final radius = int.parse(currentLoc['radius'].toString());
+      final distance = haversineDistance(latitude, lat2, longitude, lon2);
+      isOutOfRadius = distance > radius;
+    }
 
     return Stack(
       children: [
@@ -554,11 +581,144 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
                   children: [
                     Icon(
                       Icons.location_on,
-                        size: 18,
-                        color: Colors.red,
+                      size: 18,
+                      color: Colors.red,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          String searchQuery = '';
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            ),
+                            builder: (context) {
+                              return StatefulBuilder(
+                                builder: (BuildContext context, StateSetter setModalState) {
+                                  final filteredItems = locations.where((loc) {
+                                    final locName = loc['locationName'].toString().toLowerCase();
+                                    return locName.contains(searchQuery.toLowerCase());
+                                  }).toList();
+
+                                  return SafeArea(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                                        top: 16,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            "Pilih Lokasi",
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                            child: TextField(
+                                              decoration: InputDecoration(
+                                                hintText: 'Cari lokasi...',
+                                                prefixIcon: const Icon(Icons.search),
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                                              ),
+                                              onChanged: (value) {
+                                                setModalState(() {
+                                                  searchQuery = value;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          const Divider(),
+                                          Flexible(
+                                            child: ListView(
+                                              shrinkWrap: true,
+                                              children: filteredItems.map<Widget>((loc) {
+                                                final lat2 = double.parse(loc['lat'].toString());
+                                                final lon2 = double.parse(loc['lon'].toString());
+                                                final radius = int.parse(loc['radius'].toString());
+                                                final distance = haversineDistance(latitude, lat2, longitude, lon2).toInt();
+                                                final isOutOfRadius = distance > radius;
+                                                
+                                                return ListTile(
+                                                  leading: Icon(
+                                                    Icons.location_on, 
+                                                    color: isOutOfRadius ? Colors.red : Colors.green
+                                                  ),
+                                                  title: Text(loc['locationName']),
+                                                  subtitle: Text("Jarak: ${distance}m / Radius: ${radius}m"),
+                                                  trailing: isOutOfRadius 
+                                                    ? const Icon(Icons.cancel, color: Colors.red, size: 20)
+                                                    : const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _selectedLocation = loc;
+                                                    });
+                                                    Navigator.pop(context);
+                                                  },
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Builder(
+                                  builder: (context) {
+                                    if (currentLoc == null) {
+                                      return const Text("Pilih Lokasi", style: TextStyle(fontWeight: FontWeight.bold));
+                                    }
+                                    final lat2 = double.parse(currentLoc['lat'].toString());
+                                    final lon2 = double.parse(currentLoc['lon'].toString());
+                                    final radius = int.parse(currentLoc['radius'].toString());
+                                    final distance = haversineDistance(latitude, lat2, longitude, lon2).toInt();
+                                    final isOutOfRadius = distance > radius;
+                                    
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          currentLoc['locationName'],
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          "${distance}m / ${radius}m",
+                                          style: TextStyle(
+                                            color: isOutOfRadius ? Colors.red : Colors.green,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            ],
+                          ),
+                        ),
                       ),
-                      SizedBox(width: 8),
-                      Text(setLocation(latitude!, longitude!)
                     ),
                   ],
                 ),
@@ -578,9 +738,10 @@ class _TaskEndPageState extends ConsumerState<TaskEndPage> {
                 backgroundColor: clicked ? Colors.red : Colors.green[600],
                 padding: EdgeInsets.symmetric(vertical: 16), // tinggi button
               ),
-              onPressed: () {
+              onPressed: isOutOfRadius ? null : () {
                 setState(() {
                   clicked = true;
+                  _selectedLocation = currentLoc;
                 });
                 captureAndUpload(
                   other.pegawaiId,

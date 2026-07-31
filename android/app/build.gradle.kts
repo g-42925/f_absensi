@@ -31,8 +31,8 @@ android {
         applicationId = "com.leryn.f_absensi"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 77
-        versionName = "77.0.0"
+        versionCode = 80
+        versionName = "80.0.0"
     }
 
     packaging {
